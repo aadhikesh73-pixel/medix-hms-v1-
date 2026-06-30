@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediX HMS v1 - Admin Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 50%, #16213e 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 280px;
+            background: rgba(15, 23, 42, 0.5);
+            border-right: 1px solid rgba(14, 165, 233, 0.15);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(14, 165, 233, 0.1);
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            font-size: 13px;
+        }
+
+        .nav-item:hover {
+            background: rgba(14, 165, 233, 0.1);
+            border-left-color: #0ea5e9;
+        }
+
+        .nav-item.active {
+            background: rgba(14, 165, 233, 0.2);
+            border-left-color: #0ea5e9;
+            color: #0ea5e9;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            background: currentColor;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* TOP BAR */
+        .top-bar {
+            height: 70px;
+            background: rgba(15, 23, 42, 0.7);
+            border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .top-bar-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .search-box {
+            padding: 8px 16px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 6px;
+            color: #e2e8f0;
+            width: 250px;
+            font-size: 13px;
+        }
+
+        .search-box::placeholder {
+            color: #64748b;
+        }
+
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: rgba(168, 85, 247, 0.2);
+            border-radius: 6px;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* CONTENT AREA */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* KPI GRID */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1.5px solid rgba(14, 165, 233, 0.3);
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            border-color: rgba(14, 165, 233, 0.6);
+            transform: translateY(-5px);
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .kpi-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .kpi-change {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .kpi-change.positive {
+            color: #10b981;
+        }
+
+        .kpi-change.negative {
+            color: #f97316;
+        }
+
+        /* SECTION GRID */
+        .section-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(14, 165, 233, 0.2);
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            padding: 24px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #0ea5e9;
+        }
+
+        /* TABLES */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .table thead {
+            background: rgba(148, 163, 184, 0.1);
+        }
+
+        .table th {
+            padding: 12px;
+            text-align: left;
+            color: #94a3b8;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .table tr:hover {
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-pending {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }
+
+        .status-occupied {
+            background: rgba(236, 72, 153, 0.2);
+            color: #ec4899;
+        }
+
+        .status-free {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-cleaning {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }
+
+        /* BED BLOCKS VISUALIZATION */
+        .bed-blocks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .bed-block {
+            aspect-ratio: 1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .bed-block:hover {
+            transform: scale(1.05);
+        }
+
+        .bed-free {
+            background: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            border-color: #10b981;
+        }
+
+        .bed-occupied {
+            background: rgba(236, 72, 153, 0.3);
+            color: #ec4899;
+            border-color: #ec4899;
+        }
+
+        .bed-cleaning {
+            background: rgba(251, 146, 60, 0.3);
+            color: #fb923c;
+            border-color: #fb923c;
+        }
+
+        /* CHART CONTAINER */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 16px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid rgba(14, 165, 233, 0.5);
+            border-radius: 6px;
+            background: rgba(14, 165, 233, 0.2);
+            color: #0ea5e9;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: rgba(14, 165, 233, 0.3);
+            border-color: #0ea5e9;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            color: #0f172a;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+        }
+
+        /* MODALS */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(14, 165, 233, 0.3);
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 13px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            background: rgba(148, 163, 184, 0.15);
+        }
+
+        /* QR SCANNER */
+        .qr-scanner {
+            position: relative;
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        #qr-video {
+            width: 100%;
+            border-radius: 8px;
+        }
+
+        .qr-result {
+            margin-top: 16px;
+            padding: 12px;
+            background: rgba(16, 185, 129, 0.2);
+            border-left: 3px solid #10b981;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* NOTIFICATION CENTER */
+        .notifications-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.95);
+            border-left: 1px solid rgba(14, 165, 233, 0.2);
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+            z-index: 900;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .notifications-panel.open {
+            transform: translateX(0);
+        }
+
+        .notifications-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(14, 165, 233, 0.2);
+            font-weight: 600;
+        }
+
+        .notification-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notification-item:hover {
+            background: rgba(14, 165, 233, 0.1);
+        }
+
+        .notification-item.unread {
+            background: rgba(14, 165, 233, 0.2);
+            border-left: 3px solid #0ea5e9;
+        }
+
+        .notification-time {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(14, 165, 233, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(14, 165, 233, 0.5);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1400px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .section-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                width: 220px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">M</div>
+                <div class="sidebar-title">MediX</div>
+            </div>
+
+            <div class="nav-item active" onclick="switchDashboard('overview')">
+                <span class="nav-icon"></span>Dashboard
+            </div>
+            <div class="nav-item" onclick="switchDashboard('patients')">
+                <span class="nav-icon"></span>Patients
+            </div>
+            <div class="nav-item" onclick="switchDashboard('doctors')">
+                <span class="nav-icon"></span>Doctors
+            </div>
+            <div class="nav-item" onclick="switchDashboard('beds')">
+                <span class="nav-icon"></span>Beds & ICU
+            </div>
+            <div class="nav-item" onclick="switchDashboard('appointments')">
+                <span class="nav-icon"></span>Appointments
+            </div>
+            <div class="nav-item" onclick="switchDashboard('medicine')">
+                <span class="nav-icon"></span>Medicine Stock
+            </div>
+            <div class="nav-item" onclick="switchDashboard('attendance')">
+                <span class="nav-icon"></span>QR Attendance
+            </div>
+            <div class="nav-item" onclick="switchDashboard('orders')">
+                <span class="nav-icon"></span>Orders
+            </div>
+            <div class="nav-item" onclick="switchDashboard('finance')">
+                <span class="nav-icon"></span>Finance & Reports
+            </div>
+            <div class="nav-item" onclick="switchDashboard('notifications')">
+                <span class="nav-icon"></span>Notifications
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- TOP BAR -->
+            <div class="top-bar">
+                <div class="top-bar-left">
+                    <div class="top-bar-title" id="pageTitle">Dashboard Overview</div>
+                </div>
+                <div class="top-bar-right">
+                    <input type="text" class="search-box" placeholder="Search patients, doctors, beds...">
+                    <div class="notification-bell" onclick="toggleNotifications()">
+                        🔔
+                        <div class="notification-badge">5</div>
+                    </div>
+                    <div class="user-info">
+                        <div class="user-avatar">DR</div>
+                        <span>Dr. Admin</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENT AREA -->
+            <div class="content">
+                <!-- OVERVIEW DASHBOARD -->
+                <div id="overview" class="dashboard active">
+                    <div class="kpi-grid">
+                        <div class="kpi-card" style="border-color: rgba(14, 165, 233, 0.3);">
+                            <div class="kpi-label">Total Patients</div>
+                            <div class="kpi-value" style="color: #0ea5e9;">2,847</div>
+                            <div class="kpi-change positive">↑ 12% from last month</div>
+                        </div>
+                        <div class="kpi-card" style="border-color: rgba(16, 185, 129, 0.3);">
+                            <div class="kpi-label">Available Beds</div>
+                            <div class="kpi-value" style="color: #10b981;">45/240</div>
+                            <div class="kpi-change negative">⚠ 19% occupancy</div>
+                        </div>
+                        <div class="kpi-card" style="border-color: rgba(168, 85, 247, 0.3);">
+                            <div class="kpi-label">ICU Beds</div>
+                            <div class="kpi-value" style="color: #a855f7;">8/50</div>
+                            <div class="kpi-change positive">↓ 8% from yesterday</div>
+                        </div>
+                        <div class="kpi-card" style="border-color: rgba(251, 146, 60, 0.3);">
+                            <div class="kpi-label">Staff Present</div>
+                            <div class="kpi-value" style="color: #fb923c;">156</div>
+                            <div class="kpi-change positive">✓ 98% attendance</div>
+                        </div>
+                    </div>
+
+                    <div class="section-grid">
+                        <div class="section">
+                            <div class="section-title">📊 Hospital Occupancy</div>
+                            <div class="chart-container">
+                                <canvas id="occupancyChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">💰 Revenue vs Expenses</div>
+                            <div class="chart-container">
+                                <canvas id="revenueChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">👨‍⚕️ Doctor On-Duty Status</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Doctor Name</th>
+                                    <th>Department</th>
+                                    <th>Status</th>
+                                    <th>Patients Today</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Dr. Rajesh Sharma</td>
+                                    <td>Cardiology</td>
+                                    <td><span class="status-badge status-active">ACTIVE</span></td>
+                                    <td>12</td>
+                                </tr>
+                                <tr>
+                                    <td>Dr. Priya Patel</td>
+                                    <td>Neurology</td>
+                                    <td><span class="status-badge status-active">ACTIVE</span></td>
+                                    <td>8</td>
+                                </tr>
+                                <tr>
+                                    <td>Dr. Vikram Gupta</td>
+                                    <td>Orthopedics</td>
+                                    <td><span class="status-badge status-pending">BREAK</span></td>
+                                    <td>6</td>
+                                </tr>
+                                <tr>
+                                    <td>Dr. Aisha Khan</td>
+                                    <td>Pediatrics</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">OFF-DUTY</span></td>
+                                    <td>-</td>
+                                </tr>
+                                <tr>
+                                    <td>Dr. Manish Singh</td>
+                                    <td>Surgery</td>
+                                    <td><span class="status-badge status-active">ACTIVE</span></td>
+                                    <td>5</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PATIENTS DASHBOARD -->
+                <div id="patients" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Registered</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">2,847</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Active (Admitted)</div>
+                            <div class="kpi-value" style="color: #ec4899; font-size: 32px;">324</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Discharged Today</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">18</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🏥 Recently Admitted Patients</div>
+                        <button class="btn btn-primary" onclick="openModal('addPatientModal')" style="margin-bottom: 16px;">+ Add New Patient</button>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Patient ID</th>
+                                    <th>Name</th>
+                                    <th>Age</th>
+                                    <th>Department</th>
+                                    <th>Bed #</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>P-001234</td>
+                                    <td>Rajesh Kumar</td>
+                                    <td>45</td>
+                                    <td>Cardiology</td>
+                                    <td>A-102</td>
+                                    <td><span class="status-badge status-active">Admitted</span></td>
+                                </tr>
+                                <tr>
+                                    <td>P-001235</td>
+                                    <td>Priya Sharma</td>
+                                    <td>32</td>
+                                    <td>Orthopedics</td>
+                                    <td>B-205</td>
+                                    <td><span class="status-badge status-active">Admitted</span></td>
+                                </tr>
+                                <tr>
+                                    <td>P-001236</td>
+                                    <td>Vikram Singh</td>
+                                    <td>58</td>
+                                    <td>ICU</td>
+                                    <td>ICU-02</td>
+                                    <td><span class="status-badge status-active">Critical</span></td>
+                                </tr>
+                                <tr>
+                                    <td>P-001237</td>
+                                    <td>Anjali Verma</td>
+                                    <td>28</td>
+                                    <td>Gynecology</td>
+                                    <td>C-312</td>
+                                    <td><span class="status-badge status-active">Admitted</span></td>
+                                </tr>
+                                <tr>
+                                    <td>P-001238</td>
+                                    <td>Arjun Patel</td>
+                                    <td>51</td>
+                                    <td>Neurology</td>
+                                    <td>D-401</td>
+                                    <td><span class="status-badge status-pending">Under Observation</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- DOCTORS DASHBOARD -->
+                <div id="doctors" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Doctors</div>
+                            <div class="kpi-value" style="color: #a855f7; font-size: 32px;">78</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">On Duty</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">56</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">On Break</div>
+                            <div class="kpi-value" style="color: #fb923c; font-size: 32px;">12</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Off Duty</div>
+                            <div class="kpi-value" style="color: #ef4444; font-size: 32px;">10</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">👨‍⚕️ Doctor List</div>
+                        <button class="btn btn-primary" onclick="openModal('addDoctorModal')" style="margin-bottom: 16px;">+ Add New Doctor</button>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Doctor ID</th>
+                                    <th>Name</th>
+                                    <th>Specialization</th>
+                                    <th>Contact</th>
+                                    <th>Patients Assigned</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>D-001</td>
+                                    <td>Dr. Rajesh Sharma</td>
+                                    <td>Cardiology</td>
+                                    <td>+91-98765-43210</td>
+                                    <td>12</td>
+                                    <td><span class="status-badge status-active">ACTIVE</span></td>
+                                </tr>
+                                <tr>
+                                    <td>D-002</td>
+                                    <td>Dr. Priya Patel</td>
+                                    <td>Neurology</td>
+                                    <td>+91-98765-43211</td>
+                                    <td>8</td>
+                                    <td><span class="status-badge status-active">ACTIVE</span></td>
+                                </tr>
+                                <tr>
+                                    <td>D-003</td>
+                                    <td>Dr. Vikram Gupta</td>
+                                    <td>Orthopedics</td>
+                                    <td>+91-98765-43212</td>
+                                    <td>6</td>
+                                    <td><span class="status-badge status-pending">BREAK</span></td>
+                                </tr>
+                                <tr>
+                                    <td>D-004</td>
+                                    <td>Dr. Aisha Khan</td>
+                                    <td>Pediatrics</td>
+                                    <td>+91-98765-43213</td>
+                                    <td>0</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">OFF-DUTY</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BEDS & ICU DASHBOARD -->
+                <div id="beds" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(5, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Beds</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 28px;">240</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Free</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 28px;">45</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Occupied</div>
+                            <div class="kpi-value" style="color: #ec4899; font-size: 28px;">180</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Cleaning</div>
+                            <div class="kpi-value" style="color: #fb923c; font-size: 28px;">15</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">ICU Beds</div>
+                            <div class="kpi-value" style="color: #a855f7; font-size: 28px;">8/50</div>
+                        </div>
+                    </div>
+
+                    <div class="section-grid">
+                        <div class="section">
+                            <div class="section-title">🛏️ Floor 1 Bed Status</div>
+                            <div class="bed-blocks">
+                                <div class="bed-block bed-free">F1-101</div>
+                                <div class="bed-block bed-occupied">F1-102</div>
+                                <div class="bed-block bed-occupied">F1-103</div>
+                                <div class="bed-block bed-free">F1-104</div>
+                                <div class="bed-block bed-cleaning">F1-105</div>
+                                <div class="bed-block bed-occupied">F1-106</div>
+                                <div class="bed-block bed-occupied">F1-107</div>
+                                <div class="bed-block bed-free">F1-108</div>
+                                <div class="bed-block bed-occupied">F1-109</div>
+                                <div class="bed-block bed-occupied">F1-110</div>
+                                <div class="bed-block bed-free">F1-111</div>
+                                <div class="bed-block bed-occupied">F1-112</div>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">🛏️ ICU Floor Status</div>
+                            <div class="bed-blocks">
+                                <div class="bed-block bed-occupied">ICU-01</div>
+                                <div class="bed-block bed-occupied">ICU-02</div>
+                                <div class="bed-block bed-free">ICU-03</div>
+                                <div class="bed-block bed-occupied">ICU-04</div>
+                                <div class="bed-block bed-cleaning">ICU-05</div>
+                                <div class="bed-block bed-free">ICU-06</div>
+                                <div class="bed-block bed-occupied">ICU-07</div>
+                                <div class="bed-block bed-occupied">ICU-08</div>
+                                <div class="bed-block bed-free">ICU-09</div>
+                                <div class="bed-block bed-occupied">ICU-10</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">🛏️ Bed Assignment Details</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Bed #</th>
+                                    <th>Patient</th>
+                                    <th>Admitted Date</th>
+                                    <th>Doctor</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>A-102</td>
+                                    <td>Rajesh Kumar</td>
+                                    <td>2024-06-15</td>
+                                    <td>Dr. Sharma</td>
+                                    <td><span class="status-badge status-occupied">Occupied</span></td>
+                                </tr>
+                                <tr>
+                                    <td>B-205</td>
+                                    <td>Priya Sharma</td>
+                                    <td>2024-06-18</td>
+                                    <td>Dr. Gupta</td>
+                                    <td><span class="status-badge status-occupied">Occupied</span></td>
+                                </tr>
+                                <tr>
+                                    <td>ICU-02</td>
+                                    <td>Vikram Singh</td>
+                                    <td>2024-06-19</td>
+                                    <td>Dr. Sharma</td>
+                                    <td><span class="status-badge status-occupied">Critical</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- APPOINTMENTS DASHBOARD -->
+                <div id="appointments" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Today's Appointments</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">78</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Completed</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">56</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Pending</div>
+                            <div class="kpi-value" style="color: #fb923c; font-size: 32px;">12</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">No-Shows</div>
+                            <div class="kpi-value" style="color: #ef4444; font-size: 32px;">10</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">📅 Appointment Schedule</div>
+                        <button class="btn btn-primary" onclick="openModal('addAppointmentModal')" style="margin-bottom: 16px;">+ New Appointment</button>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Appointment ID</th>
+                                    <th>Patient</th>
+                                    <th>Doctor</th>
+                                    <th>Date & Time</th>
+                                    <th>Department</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>APT-001</td>
+                                    <td>Rajesh Kumar</td>
+                                    <td>Dr. Sharma</td>
+                                    <td>2024-06-27 09:30 AM</td>
+                                    <td>Cardiology</td>
+                                    <td><span class="status-badge status-active">Completed</span></td>
+                                </tr>
+                                <tr>
+                                    <td>APT-002</td>
+                                    <td>Priya Sharma</td>
+                                    <td>Dr. Gupta</td>
+                                    <td>2024-06-27 10:15 AM</td>
+                                    <td>Orthopedics</td>
+                                    <td><span class="status-badge status-active">In Progress</span></td>
+                                </tr>
+                                <tr>
+                                    <td>APT-003</td>
+                                    <td>Vikram Singh</td>
+                                    <td>Dr. Khan</td>
+                                    <td>2024-06-27 02:00 PM</td>
+                                    <td>Pediatrics</td>
+                                    <td><span class="status-badge status-pending">Pending</span></td>
+                                </tr>
+                                <tr>
+                                    <td>APT-004</td>
+                                    <td>Anjali Verma</td>
+                                    <td>Dr. Patel</td>
+                                    <td>2024-06-27 11:00 AM</td>
+                                    <td>Neurology</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">No-Show</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- MEDICINE STOCK DASHBOARD -->
+                <div id="medicine" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Items</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">342</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Low Stock Items</div>
+                            <div class="kpi-value" style="color: #fb923c; font-size: 32px;">28</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Out of Stock</div>
+                            <div class="kpi-value" style="color: #ef4444; font-size: 32px;">5</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Value</div>
+                            <div class="kpi-value" style="color: #fbbf24; font-size: 28px;">₹45.2L</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">💊 Medicine Inventory</div>
+                        <button class="btn btn-primary" onclick="openModal('addMedicineModal')" style="margin-bottom: 16px;">+ Add Medicine</button>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine Name</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Expiry Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Aspirin 500mg</td>
+                                    <td>1,250</td>
+                                    <td>₹5</td>
+                                    <td>2025-12-31</td>
+                                    <td><span class="status-badge status-active">In Stock</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Amoxicillin 250mg</td>
+                                    <td>45</td>
+                                    <td>₹12</td>
+                                    <td>2025-08-15</td>
+                                    <td><span class="status-badge status-pending">Low Stock</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Paracetamol 650mg</td>
+                                    <td>2,100</td>
+                                    <td>₹3</td>
+                                    <td>2026-01-30</td>
+                                    <td><span class="status-badge status-active">In Stock</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Metformin 500mg</td>
+                                    <td>0</td>
+                                    <td>₹8</td>
+                                    <td>-</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">Out of Stock</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Ceftriaxone Inj.</td>
+                                    <td>320</td>
+                                    <td>₹45</td>
+                                    <td>2025-09-20</td>
+                                    <td><span class="status-badge status-active">In Stock</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ATTENDANCE DASHBOARD -->
+                <div id="attendance" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Total Staff</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">280</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Present Today</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">256</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Absent</div>
+                            <div class="kpi-value" style="color: #fb923c; font-size: 32px;">16</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Late Arrivals</div>
+                            <div class="kpi-value" style="color: #f97316; font-size: 32px;">8</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">📱 QR Code Attendance Scanner</div>
+                        <button class="btn btn-primary" onclick="startQRScanner()" style="margin-bottom: 16px;">🔲 Start Scanner</button>
+                        <div id="qrScanner" class="qr-scanner" style="display: none;">
+                            <video id="qr-video" width="320" height="240"></video>
+                            <div id="qr-result" style="display: none;" class="qr-result"></div>
+                        </div>
+                    </div>
+
+                    <div class="section" style="margin-top: 20px;">
+                        <div class="section-title">📋 Today's Attendance</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Staff ID</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Check-In Time</th>
+                                    <th>Check-Out Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>S-001</td>
+                                    <td>Rajesh Kumar</td>
+                                    <td>Nursing</td>
+                                    <td>08:00 AM</td>
+                                    <td>04:15 PM</td>
+                                    <td><span class="status-badge status-active">Present</span></td>
+                                </tr>
+                                <tr>
+                                    <td>S-002</td>
+                                    <td>Priya Sharma</td>
+                                    <td>Nursing</td>
+                                    <td>08:30 AM</td>
+                                    <td>-</td>
+                                    <td><span class="status-badge status-active">Present</span></td>
+                                </tr>
+                                <tr>
+                                    <td>S-003</td>
+                                    <td>Vikram Singh</td>
+                                    <td>Support Staff</td>
+                                    <td>-</td>
+                                    <td>-</td>
+                                    <td><span class="status-badge status-pending">Absent</span></td>
+                                </tr>
+                                <tr>
+                                    <td>S-004</td>
+                                    <td>Anjali Verma</td>
+                                    <td>Nursing</td>
+                                    <td>09:15 AM</td>
+                                    <td>-</td>
+                                    <td><span class="status-badge" style="background: rgba(251, 146, 60, 0.2); color: #fb923c;">Late</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ORDERS DASHBOARD -->
+                <div id="orders" class="dashboard">
+                    <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Pending Orders</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">24</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">O₂ Cylinders</div>
+                            <div class="kpi-value" style="color: #06b6d4; font-size: 32px;">8</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Medicine Orders</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">16</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Order Value</div>
+                            <div class="kpi-value" style="color: #fbbf24; font-size: 28px;">₹8.5L</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">📦 Orders Management</div>
+                        <button class="btn btn-primary" onclick="openModal('addOrderModal')" style="margin-bottom: 16px;">+ Create Order</button>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Order Date</th>
+                                    <th>Expected Delivery</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>ORD-001</td>
+                                    <td>Medical Oxygen Cylinder (D Type)</td>
+                                    <td>8</td>
+                                    <td>₹3,500</td>
+                                    <td>2024-06-25</td>
+                                    <td>2024-06-28</td>
+                                    <td><span class="status-badge status-pending">In Transit</span></td>
+                                </tr>
+                                <tr>
+                                    <td>ORD-002</td>
+                                    <td>Aspirin Tablets (Box of 100)</td>
+                                    <td>16</td>
+                                    <td>₹425</td>
+                                    <td>2024-06-26</td>
+                                    <td>2024-06-27</td>
+                                    <td><span class="status-badge status-active">Delivered</span></td>
+                                </tr>
+                                <tr>
+                                    <td>ORD-003</td>
+                                    <td>Amoxicillin Capsules (Box of 50)</td>
+                                    <td>24</td>
+                                    <td>₹185</td>
+                                    <td>2024-06-26</td>
+                                    <td>2024-06-27</td>
+                                    <td><span class="status-badge status-pending">Pending</span></td>
+                                </tr>
+                                <tr>
+                                    <td>ORD-004</td>
+                                    <td>IV Fluids (Saline 500ml)</td>
+                                    <td>12</td>
+                                    <td>₹95</td>
+                                    <td>2024-06-24</td>
+                                    <td>2024-06-26</td>
+                                    <td><span class="status-badge status-active">Delivered</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- FINANCE DASHBOARD -->
+                <div id="finance" class="dashboard">
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <div class="kpi-label">Monthly Revenue</div>
+                            <div class="kpi-value" style="color: #fbbf24; font-size: 32px;">₹24.5L</div>
+                            <div class="kpi-change positive">↑ 8.5% growth</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Monthly Expenses</div>
+                            <div class="kpi-value" style="color: #ef4444; font-size: 32px;">₹16.8L</div>
+                            <div class="kpi-change negative">↑ 3.2% increase</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Net Profit</div>
+                            <div class="kpi-value" style="color: #10b981; font-size: 32px;">₹7.7L</div>
+                            <div class="kpi-change positive">↑ 12.3% growth</div>
+                        </div>
+                        <div class="kpi-card">
+                            <div class="kpi-label">Profit Margin</div>
+                            <div class="kpi-value" style="color: #0ea5e9; font-size: 32px;">31.4%</div>
+                            <div class="kpi-change positive">↑ 2.1% improvement</div>
+                        </div>
+                    </div>
+
+                    <div class="section-grid">
+                        <div class="section">
+                            <div class="section-title">📊 Revenue by Department</div>
+                            <div class="chart-container">
+                                <canvas id="departmentRevenueChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="section">
+                            <div class="section-title">📈 Monthly Trend</div>
+                            <div class="chart-container">
+                                <canvas id="monthlyTrendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section" style="margin-top: 20px;">
+                        <div class="section-title">💰 Expense Breakdown</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Amount</th>
+                                    <th>Percentage</th>
+                                    <th>Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Staff Salaries</td>
+                                    <td>₹8.5L</td>
+                                    <td>50.6%</td>
+                                    <td><span class="status-badge status-active">Stable</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Medicine & Supplies</td>
+                                    <td>₹4.2L</td>
+                                    <td>25.0%</td>
+                                    <td><span class="status-badge positive" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">↓ Decreased</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Utilities & Maintenance</td>
+                                    <td>₹2.1L</td>
+                                    <td>12.5%</td>
+                                    <td><span class="status-badge status-pending">⚠ Rising</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Equipment & Depreciation</td>
+                                    <td>₹1.0L</td>
+                                    <td>6.0%</td>
+                                    <td><span class="status-badge status-active">Stable</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Insurance & Legal</td>
+                                    <td>₹0.5L</td>
+                                    <td>3.0%</td>
+                                    <td><span class="status-badge status-active">Stable</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- NOTIFICATIONS DASHBOARD -->
+                <div id="notifications" class="dashboard">
+                    <div class="section">
+                        <div class="section-title">🔔 Notification Center</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Sector</th>
+                                    <th>Message</th>
+                                    <th>Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>14:32</td>
+                                    <td>Medicine Stock</td>
+                                    <td>Amoxicillin 250mg stock below minimum threshold</td>
+                                    <td><span class="status-badge status-pending">⚠ Medium</span></td>
+                                </tr>
+                                <tr>
+                                    <td>13:45</td>
+                                    <td>Beds</td>
+                                    <td>Floor 2, Bed B-208 requires cleaning</td>
+                                    <td><span class="status-badge status-active">ℹ Info</span></td>
+                                </tr>
+                                <tr>
+                                    <td>13:20</td>
+                                    <td>Appointments</td>
+                                    <td>Dr. Khan missed appointment APT-004</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">🔴 High</span></td>
+                                </tr>
+                                <tr>
+                                    <td>12:58</td>
+                                    <td>Patients</td>
+                                    <td>Patient P-001236 (Vikram Singh) vital signs critical</td>
+                                    <td><span class="status-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">🔴 Critical</span></td>
+                                </tr>
+                                <tr>
+                                    <td>12:30</td>
+                                    <td>Orders</td>
+                                    <td>Oxygen cylinder order ORD-001 dispatched</td>
+                                    <td><span class="status-badge status-active">✓ Success</span></td>
+                                </tr>
+                                <tr>
+                                    <td>11:15</td>
+                                    <td>Staff</td>
+                                    <td>Staff member S-003 marked absent</td>
+                                    <td><span class="status-badge status-active">ℹ Info</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="addPatientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Add New Patient</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Patient Name</label>
+                    <input type="text" class="form-control" placeholder="Enter patient name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Age</label>
+                    <input type="number" class="form-control" placeholder="Enter age">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select class="form-control">
+                        <option>Select Department</option>
+                        <option>Cardiology</option>
+                        <option>Neurology</option>
+                        <option>Orthopedics</option>
+                        <option>Pediatrics</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact Number</label>
+                    <input type="tel" class="form-control" placeholder="+91-XXXXX-XXXXX">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Add Patient</button>
+                <button type="button" class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal('addPatientModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="addDoctorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Add New Doctor</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Doctor Name</label>
+                    <input type="text" class="form-control" placeholder="Enter doctor name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Specialization</label>
+                    <select class="form-control">
+                        <option>Select Specialization</option>
+                        <option>Cardiology</option>
+                        <option>Neurology</option>
+                        <option>Orthopedics</option>
+                        <option>Pediatrics</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contact Number</label>
+                    <input type="tel" class="form-control" placeholder="+91-XXXXX-XXXXX">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Add Doctor</button>
+                <button type="button" class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal('addDoctorModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="addAppointmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Schedule Appointment</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Patient</label>
+                    <select class="form-control">
+                        <option>Select Patient</option>
+                        <option>Rajesh Kumar (P-001234)</option>
+                        <option>Priya Sharma (P-001235)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Doctor</label>
+                    <select class="form-control">
+                        <option>Select Doctor</option>
+                        <option>Dr. Rajesh Sharma</option>
+                        <option>Dr. Priya Patel</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date & Time</label>
+                    <input type="datetime-local" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Schedule</button>
+                <button type="button" class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal('addAppointmentModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="addMedicineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Add Medicine</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Medicine Name</label>
+                    <input type="text" class="form-control" placeholder="Enter medicine name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" placeholder="Enter quantity">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Unit Price</label>
+                    <input type="number" class="form-control" placeholder="Enter unit price" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Expiry Date</label>
+                    <input type="date" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Add Medicine</button>
+                <button type="button" class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal('addMedicineModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="addOrderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Create Order</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Item</label>
+                    <select class="form-control">
+                        <option>Select Item</option>
+                        <option>Medical Oxygen Cylinder (D Type)</option>
+                        <option>Aspirin Tablets (Box)</option>
+                        <option>IV Fluids (Saline)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" placeholder="Enter quantity">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Expected Delivery</label>
+                    <input type="date" class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Create Order</button>
+                <button type="button" class="btn" style="width: 100%; margin-top: 10px;" onclick="closeModal('addOrderModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notifications Panel -->
+    <div id="notificationsPanel" class="notifications-panel">
+        <div class="notifications-header">
+            🔔 Notifications (5)
+        </div>
+        <div class="notification-item unread">
+            <strong>Critical Alert: Patient Vital Signs</strong>
+            <p>Patient P-001236 (Vikram Singh) in ICU-02 showing abnormal vital signs</p>
+            <div class="notification-time">14:32 - 2 seconds ago</div>
+        </div>
+        <div class="notification-item unread">
+            <strong>Medicine Stock Alert</strong>
+            <p>Amoxicillin 250mg stock below minimum threshold. Only 45 units remaining</p>
+            <div class="notification-time">14:25 - 9 minutes ago</div>
+        </div>
+        <div class="notification-item unread">
+            <strong>Bed Assignment Needed</strong>
+            <p>Bed B-208 (Floor 2) requires cleaning. Please mark as ready</p>
+            <div class="notification-time">13:45 - 1 hour ago</div>
+        </div>
+        <div class="notification-item">
+            <strong>Appointment No-Show</strong>
+            <p>Patient for appointment APT-004 did not arrive. Please reschedule</p>
+            <div class="notification-time">13:20 - 2 hours ago</div>
+        </div>
+        <div class="notification-item">
+            <strong>Order Delivery Confirmed</strong>
+            <p>Oxygen cylinder order ORD-001 has been delivered. Verify stock</p>
+            <div class="notification-time">12:30 - 3 hours ago</div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard Switching
+        function switchDashboard(dashboard) {
+            // Hide all dashboards
+            document.querySelectorAll('.dashboard').forEach(d => d.classList.remove('active'));
+            
+            // Show selected dashboard
+            document.getElementById(dashboard).classList.add('active');
+            
+            // Update sidebar active
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+            
+            // Update page title
+            const titles = {
+                'overview': 'Dashboard Overview',
+                'patients': 'Patients Management',
+                'doctors': 'Doctors Management',
+                'beds': 'Beds & ICU Status',
+                'appointments': 'Appointments Schedule',
+                'medicine': 'Medicine Inventory',
+                'attendance': 'Staff Attendance',
+                'orders': 'Orders Management',
+                'finance': 'Financial Reports',
+                'notifications': 'Notification Center'
+            };
+            document.getElementById('pageTitle').textContent = titles[dashboard];
+
+            // Initialize charts if needed
+            if (dashboard === 'overview') {
+                initCharts();
+            } else if (dashboard === 'finance') {
+                initFinanceCharts();
+            }
+        }
+
+        // Modal Functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        // Notifications
+        function toggleNotifications() {
+            const panel = document.getElementById('notificationsPanel');
+            panel.classList.toggle('open');
+        }
+
+        // QR Scanner (Placeholder)
+        function startQRScanner() {
+            const scanner = document.getElementById('qrScanner');
+            scanner.style.display = scanner.style.display === 'none' ? 'block' : 'none';
+            alert('QR Scanner initialized. Connect to camera device for production use.');
+        }
+
+        // Charts
+        function initCharts() {
+            // Occupancy Chart
+            const occupancyCtx = document.getElementById('occupancyChart');
+            if (occupancyCtx && !occupancyCtx.chart) {
+                occupancyCtx.chart = new Chart(occupancyCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Occupied', 'Free', 'Cleaning'],
+                        datasets: [{
+                            data: [60, 25, 15],
+                            backgroundColor: [
+                                'rgba(236, 72, 153, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(251, 146, 60, 0.6)'
+                            ],
+                            borderColor: ['#ec4899', '#10b981', '#fb923c'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e2e8f0',
+                                    font: { size: 12 }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart');
+            if (revenueCtx && !revenueCtx.chart) {
+                revenueCtx.chart = new Chart(revenueCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [
+                            {
+                                label: 'Revenue',
+                                data: [18, 20, 19, 22, 23, 24.5],
+                                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                                borderColor: '#10b981',
+                                borderWidth: 2
+                            },
+                            {
+                                label: 'Expenses',
+                                data: [14, 15, 14, 15.5, 16, 16.8],
+                                backgroundColor: 'rgba(239, 68, 68, 0.6)',
+                                borderColor: '#ef4444',
+                                borderWidth: 2
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e2e8f0',
+                                    font: { size: 12 }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function initFinanceCharts() {
+            // Department Revenue Chart
+            const deptCtx = document.getElementById('departmentRevenueChart');
+            if (deptCtx && !deptCtx.chart) {
+                deptCtx.chart = new Chart(deptCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Surgery'],
+                        datasets: [{
+                            label: 'Revenue (in ₹ Lakh)',
+                            data: [6.5, 4.2, 5.1, 3.8, 4.9],
+                            backgroundColor: [
+                                'rgba(14, 165, 233, 0.6)',
+                                'rgba(16, 185, 129, 0.6)',
+                                'rgba(168, 85, 247, 0.6)',
+                                'rgba(251, 146, 60, 0.6)',
+                                'rgba(236, 72, 153, 0.6)'
+                            ],
+                            borderColor: ['#0ea5e9', '#10b981', '#a855f7', '#fb923c', '#ec4899'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            },
+                            y: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Monthly Trend Chart
+            const trendCtx = document.getElementById('monthlyTrendChart');
+            if (trendCtx && !trendCtx.chart) {
+                trendCtx.chart = new Chart(trendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                        datasets: [{
+                            label: 'Daily Revenue',
+                            data: [5.8, 6.1, 6.3, 6.3],
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#0ea5e9',
+                            pointBorderColor: '#0f172a',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e2e8f0',
+                                    font: { size: 12 }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            },
+                            x: {
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+        });
+    </script>
+</body>
+</html>

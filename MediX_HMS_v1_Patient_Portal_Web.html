@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediX Patient Portal - Healthcare Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            color: #1f2937;
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        header {
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(14, 165, 233, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #0ea5e9;
+            font-size: 20px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .search-box {
+            padding: 10px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            width: 250px;
+            font-size: 13px;
+        }
+
+        .search-box::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .notification-icon,
+        .profile-icon {
+            cursor: pointer;
+            font-size: 20px;
+            position: relative;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* MAIN CONTENT */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* TABS */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 16px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab:hover {
+            color: #0ea5e9;
+        }
+
+        .tab.active {
+            color: #0ea5e9;
+            border-bottom-color: #0ea5e9;
+        }
+
+        /* CONTENT SECTIONS */
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* CARDS */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #1f2937;
+        }
+
+        /* DASHBOARD WIDGETS */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .widget {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .widget.warning {
+            border-left-color: #f97316;
+        }
+
+        .widget.success {
+            border-left-color: #10b981;
+        }
+
+        .widget-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .widget-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .widget-description {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        /* APPOINTMENT CARD */
+        .appointment-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-left: 4px solid #0ea5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .appointment-info h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        .appointment-details {
+            font-size: 12px;
+            color: #6b7280;
+            display: flex;
+            gap: 16px;
+        }
+
+        .appointment-status {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(14, 165, 233, 0.2);
+            color: #0ea5e9;
+        }
+
+        .appointment-status.confirmed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .appointment-status.completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .appointment-status.cancelled {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        /* MEDICAL RECORDS */
+        .record-item {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .record-item:hover {
+            background: #f3f4f6;
+            transform: translateX(5px);
+        }
+
+        .record-info h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #1f2937;
+        }
+
+        .record-info p {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .record-action {
+            color: #0ea5e9;
+            font-size: 18px;
+        }
+
+        /* BILL CARD */
+        .bill-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        .bill-info h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        .bill-amount {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0ea5e9;
+        }
+
+        .bill-status {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .bill-status.paid {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .bill-status.pending {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+        }
+
+        /* DOCTOR CARD */
+        .doctor-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .doctor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .doctor-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 32px;
+            margin: 0 auto 12px;
+        }
+
+        .doctor-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #1f2937;
+        }
+
+        .doctor-specialty {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .doctor-rating {
+            font-size: 12px;
+            color: #fbbf24;
+            margin-bottom: 12px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            color: #1f2937;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            color: white;
+            border: none;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+        }
+
+        /* PROFILE SECTION */
+        .profile-header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 40px;
+        }
+
+        .profile-info h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        .profile-info p {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+
+        /* TABLE */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        .table thead {
+            background: #f9fafb;
+        }
+
+        .table th {
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table td {
+            padding: 12px;
+            font-size: 13px;
+            color: #1f2937;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .table tbody tr:hover {
+            background: #f9fafb;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+
+        /* FOOTER */
+        footer {
+            background: #1f2937;
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-top: 60px;
+        }
+
+        footer p {
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .header-right {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .profile-header {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="header-left">
+            <div class="logo">M</div>
+            <div class="header-title">MediX Patient Portal</div>
+        </div>
+        <div class="header-right">
+            <input type="text" class="search-box" placeholder="Search appointments, records...">
+            <div class="notification-icon">
+                🔔
+                <div class="notification-badge">3</div>
+            </div>
+            <div class="profile-icon" onclick="toggleProfileMenu()">👤</div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <div class="container">
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
+            <button class="tab" onclick="switchTab('appointments')">Appointments</button>
+            <button class="tab" onclick="switchTab('records')">Medical Records</button>
+            <button class="tab" onclick="switchTab('bills')">Bills & Payments</button>
+            <button class="tab" onclick="switchTab('doctors')">Find Doctors</button>
+            <button class="tab" onclick="switchTab('profile')">My Profile</button>
+        </div>
+
+        <!-- DASHBOARD TAB -->
+        <div id="dashboard" class="content-section active">
+            <div class="dashboard-grid">
+                <div class="widget">
+                    <div class="widget-label">Next Appointment</div>
+                    <div class="widget-value">Tomorrow</div>
+                    <div class="widget-description">10:30 AM with Dr. Sharma</div>
+                </div>
+                <div class="widget success">
+                    <div class="widget-label">Last Checkup</div>
+                    <div class="widget-value">Healthy</div>
+                    <div class="widget-description">All vitals normal</div>
+                </div>
+                <div class="widget">
+                    <div class="widget-label">Pending Bills</div>
+                    <div class="widget-value">1</div>
+                    <div class="widget-description">₹2,500 due</div>
+                </div>
+                <div class="widget warning">
+                    <div class="widget-label">Medicine Refills</div>
+                    <div class="widget-value">3</div>
+                    <div class="widget-description">Available to order</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📋 Recent Activity</div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Activity</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2024-06-25</td>
+                            <td>Appointment with Dr. Sharma</td>
+                            <td><span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Completed</span></td>
+                        </tr>
+                        <tr>
+                            <td>2024-06-23</td>
+                            <td>Blood test report received</td>
+                            <td><span style="background: rgba(14, 165, 233, 0.2); color: #0ea5e9; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Downloaded</span></td>
+                        </tr>
+                        <tr>
+                            <td>2024-06-20</td>
+                            <td>Prescription refilled</td>
+                            <td><span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Confirmed</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- APPOINTMENTS TAB -->
+        <div id="appointments" class="content-section">
+            <div class="card">
+                <div class="card-title">Upcoming Appointments</div>
+                <button class="btn btn-primary" style="width: auto; margin-bottom: 16px;" onclick="openModal('bookAppointmentModal')">+ Book Appointment</button>
+
+                <div class="appointment-card">
+                    <div class="appointment-info">
+                        <h3>Cardiology Checkup</h3>
+                        <div class="appointment-details">
+                            <span>📅 Tomorrow, 10:30 AM</span>
+                            <span>👨‍⚕️ Dr. Rajesh Sharma</span>
+                            <span>📍 Room 102, Floor 1</span>
+                        </div>
+                    </div>
+                    <div class="appointment-status confirmed">CONFIRMED</div>
+                </div>
+
+                <div class="appointment-card">
+                    <div class="appointment-info">
+                        <h3>Follow-up Consultation</h3>
+                        <div class="appointment-details">
+                            <span>📅 June 30, 2024 - 2:00 PM</span>
+                            <span>👨‍⚕️ Dr. Priya Patel</span>
+                            <span>📍 Room 205, Floor 2</span>
+                        </div>
+                    </div>
+                    <div class="appointment-status">SCHEDULED</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Past Appointments</div>
+                <div class="appointment-card">
+                    <div class="appointment-info">
+                        <h3>General Health Checkup</h3>
+                        <div class="appointment-details">
+                            <span>📅 June 25, 2024</span>
+                            <span>👨‍⚕️ Dr. Rajesh Sharma</span>
+                            <span>⏱️ 45 minutes</span>
+                        </div>
+                    </div>
+                    <div class="appointment-status completed">COMPLETED</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MEDICAL RECORDS TAB -->
+        <div id="records" class="content-section">
+            <div class="card">
+                <div class="card-title">📄 Medical Records & Reports</div>
+
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>Blood Test Report</h4>
+                        <p>Date: June 23, 2024 • Lab: Central Diagnostic</p>
+                    </div>
+                    <div class="record-action">📥</div>
+                </div>
+
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>X-Ray Report (Chest)</h4>
+                        <p>Date: June 20, 2024 • Lab: Imaging Center</p>
+                    </div>
+                    <div class="record-action">📥</div>
+                </div>
+
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>ECG Report</h4>
+                        <p>Date: June 18, 2024 • Lab: Cardiac Center</p>
+                    </div>
+                    <div class="record-action">📥</div>
+                </div>
+
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>Prescription - Medications</h4>
+                        <p>Date: June 25, 2024 • Prescribed by: Dr. Sharma</p>
+                    </div>
+                    <div class="record-action">📥</div>
+                </div>
+
+                <div class="record-item">
+                    <div class="record-info">
+                        <h4>Vaccination Certificate</h4>
+                        <p>Date: May 15, 2024 • Vaccine: COVID-19 Booster</p>
+                    </div>
+                    <div class="record-action">📥</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BILLS & PAYMENTS TAB -->
+        <div id="bills" class="content-section">
+            <div class="card">
+                <div class="card-title">💰 Bills & Payments</div>
+
+                <div class="bill-card">
+                    <div class="bill-info">
+                        <h3>Appointment Consultation - Dr. Sharma</h3>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Bill Date: June 25, 2024</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="bill-amount">₹1,500</div>
+                        <span class="bill-status paid">PAID</span>
+                    </div>
+                </div>
+
+                <div class="bill-card">
+                    <div class="bill-info">
+                        <h3>Lab Tests & Reports</h3>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Bill Date: June 23, 2024</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="bill-amount">₹2,500</div>
+                        <span class="bill-status pending">PENDING</span>
+                    </div>
+                </div>
+
+                <div class="bill-card">
+                    <div class="bill-info">
+                        <h3>Medications & Pharmacy</h3>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Bill Date: June 20, 2024</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="bill-amount">₹850</div>
+                        <span class="bill-status paid">PAID</span>
+                    </div>
+                </div>
+
+                <div class="bill-card">
+                    <div class="bill-info">
+                        <h3>Room Charges (2 days)</h3>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 4px;">Bill Date: June 18, 2024</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="bill-amount">₹4,000</div>
+                        <span class="bill-status paid">PAID</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-title">Payment Method</div>
+                <div style="padding: 16px; background: #f9fafb; border-radius: 8px;">
+                    <p style="font-size: 13px; margin-bottom: 12px;">💳 Add or update payment method to settle pending bills</p>
+                    <button class="btn btn-primary" style="width: auto;">Add Payment Method</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FIND DOCTORS TAB -->
+        <div id="doctors" class="content-section">
+            <div class="card">
+                <div class="card-title">👨‍⚕️ Find & Book Doctors</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+                <div class="doctor-card">
+                    <div class="doctor-avatar">RS</div>
+                    <div class="doctor-name">Dr. Rajesh Sharma</div>
+                    <div class="doctor-specialty">Cardiology • 15 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐⭐ (156 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+
+                <div class="doctor-card">
+                    <div class="doctor-avatar">PP</div>
+                    <div class="doctor-name">Dr. Priya Patel</div>
+                    <div class="doctor-specialty">Neurology • 12 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐⭐ (142 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+
+                <div class="doctor-card">
+                    <div class="doctor-avatar">VG</div>
+                    <div class="doctor-name">Dr. Vikram Gupta</div>
+                    <div class="doctor-specialty">Orthopedics • 10 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐ (128 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+
+                <div class="doctor-card">
+                    <div class="doctor-avatar">AK</div>
+                    <div class="doctor-name">Dr. Aisha Khan</div>
+                    <div class="doctor-specialty">Pediatrics • 8 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐⭐ (134 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+
+                <div class="doctor-card">
+                    <div class="doctor-avatar">MS</div>
+                    <div class="doctor-name">Dr. Manish Singh</div>
+                    <div class="doctor-specialty">Surgery • 18 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐⭐ (178 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+
+                <div class="doctor-card">
+                    <div class="doctor-avatar">ND</div>
+                    <div class="doctor-name">Dr. Neha Desai</div>
+                    <div class="doctor-specialty">Gynecology • 11 years experience</div>
+                    <div class="doctor-rating">⭐⭐⭐⭐⭐ (165 reviews)</div>
+                    <button class="btn btn-primary">Book Appointment</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROFILE TAB -->
+        <div id="profile" class="content-section">
+            <div class="profile-header">
+                <div class="profile-avatar">RK</div>
+                <div style="text-align: left; flex: 1;">
+                    <h2>Rajesh Kumar</h2>
+                    <p>📱 Patient ID: P-001234</p>
+                    <p>📧 Email: rajesh.kumar@email.com</p>
+                    <p>📞 Phone: +91-98765-43210</p>
+                    <p>🎂 Date of Birth: January 15, 1979 (45 years)</p>
+                    <p>🩺 Blood Group: O+</p>
+                </div>
+                <button class="btn btn-primary" style="width: auto; height: fit-content;">Edit Profile</button>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Emergency Contact</div>
+                <div style="display: grid; gap: 16px;">
+                    <div>
+                        <label class="form-label">Contact Name</label>
+                        <input type="text" class="form-control" value="Priya Kumar" disabled>
+                    </div>
+                    <div>
+                        <label class="form-label">Relationship</label>
+                        <input type="text" class="form-control" value="Spouse" disabled>
+                    </div>
+                    <div>
+                        <label class="form-label">Phone Number</label>
+                        <input type="text" class="form-control" value="+91-98765-43211" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Medical History</div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Condition</th>
+                            <th>Diagnosis Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Hypertension</td>
+                            <td>2019-05-10</td>
+                            <td>Ongoing</td>
+                        </tr>
+                        <tr>
+                            <td>Type 2 Diabetes</td>
+                            <td>2020-08-22</td>
+                            <td>Controlled</td>
+                        </tr>
+                        <tr>
+                            <td>High Cholesterol</td>
+                            <td>2021-03-15</td>
+                            <td>Managed</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div id="bookAppointmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Book Appointment</div>
+            <form>
+                <div class="form-group">
+                    <label class="form-label">Select Doctor</label>
+                    <select class="form-control">
+                        <option>Choose a doctor...</option>
+                        <option>Dr. Rajesh Sharma (Cardiology)</option>
+                        <option>Dr. Priya Patel (Neurology)</option>
+                        <option>Dr. Vikram Gupta (Orthopedics)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Preferred Date</label>
+                    <input type="date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Preferred Time</label>
+                    <select class="form-control">
+                        <option>Choose time slot...</option>
+                        <option>09:00 AM</option>
+                        <option>09:30 AM</option>
+                        <option>10:00 AM</option>
+                        <option>10:30 AM</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reason for Visit</label>
+                    <textarea class="form-control" rows="3" placeholder="Describe your symptoms or reason..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 10px;">Book Appointment</button>
+                <button type="button" class="btn" style="width: 100%;" onclick="closeModal('bookAppointmentModal')">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <p>&copy; 2024 MediX Healthcare Management System. All rights reserved.</p>
+        <p>Secure • HIPAA Compliant • 24/7 Support • Emergency Services Available</p>
+        <p>Contact Us: support@medix.com | Emergency: +91-1800-MEDIX-911</p>
+    </footer>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected section
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+
+        function toggleProfileMenu() {
+            alert('Profile menu clicked. Implement dropdown menu for logout, settings, etc.');
+        }
+
+        // Prevent form submission
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Form submitted! This would send data to the server.');
+                closeModal(this.closest('.modal').id);
+            });
+        });
+    </script>
+</body>
+</html>

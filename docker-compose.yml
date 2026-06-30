@@ -1,0 +1,45 @@
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: medix-postgres
+    environment:
+      POSTGRES_DB: medix_hospital
+      POSTGRES_USER: medix_admin
+      POSTGRES_PASSWORD: medix_password_123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: medix-api
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: medix_hospital
+      DB_USER: medix_admin
+      DB_PASSWORD: medix_password_123
+    ports:
+      - "8000:5000"
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: medix-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./MediX_HMS_v1_Admin_Desktop_App.html:/usr/share/nginx/html/admin.html:ro
+      - ./MediX_HMS_v1_Patient_Portal_Web.html:/usr/share/nginx/html/patient.html:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <title>MediX HMS v2 - Mobile Admin Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230ea5e9' width='192' height='192'/><text x='50%' y='50%' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>M</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230ea5e9' width='180' height='180'/><text x='50%' y='50%' font-size='90' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle'>M</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #0ea5e9;
+            --primary-dark: #06b6d4;
+            --bg-dark: #0f172a;
+            --bg-darker: #1a1f3a;
+            --surface: rgba(30, 41, 59, 0.6);
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --border: rgba(14, 165, 233, 0.2);
+            --success: #10b981;
+            --warning: #fb923c;
+            --danger: #ef4444;
+            --safe-area-inset-top: max(env(safe-area-inset-top), 0px);
+            --safe-area-inset-bottom: max(env(safe-area-inset-bottom, 0px));
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -webkit-touch-callout: none;
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+        }
+
+        .app-container {
+            display: flex;
+            height: calc(100vh - var(--safe-area-inset-top) - var(--safe-area-inset-bottom));
+            flex-direction: column;
+        }
+
+        /* HEADER */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .header-logo {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .icon-button {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .content-page {
+            display: none;
+            padding: 16px;
+            gap: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .content-page.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* WIDGETS */
+        .widget-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .widget {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .widget-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .widget-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .widget-change {
+            font-size: 11px;
+            color: var(--success);
+        }
+
+        .widget-change.negative {
+            color: var(--warning);
+        }
+
+        /* CARDS */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .item-label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .item-value {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .status-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-badge.warning {
+            background: rgba(251, 146, 60, 0.2);
+            color: var(--warning);
+        }
+
+        .status-badge.danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* BOTTOM NAV */
+        .bottom-nav {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            padding-bottom: calc(8px + var(--safe-area-inset-bottom));
+            flex-shrink: 0;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border: none;
+            background: none;
+            font-size: 12px;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 20px;
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            -webkit-appearance: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #0f172a;
+            border: none;
+            width: 100%;
+        }
+
+        .btn-primary:active {
+            opacity: 0.8;
+            transform: scale(0.98);
+        }
+
+        /* CHART */
+        .chart-container {
+            height: 200px;
+            margin: 12px 0;
+        }
+
+        /* ALERTS */
+        .alert {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid var(--danger);
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .alert.success {
+            background: rgba(16, 185, 129, 0.1);
+            border-left-color: var(--success);
+        }
+
+        .alert.warning {
+            background: rgba(251, 146, 60, 0.1);
+            border-left-color: var(--warning);
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-darker);
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding-bottom: calc(20px + var(--safe-area-inset-bottom));
+        }
+
+        .modal-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            -webkit-appearance: none;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(14, 165, 233, 0.3);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(14, 165, 233, 0.5);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 480px) {
+            .widget-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* LOADING */
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(14, 165, 233, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* PWA INSTALL PROMPT */
+        .pwa-install-prompt {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .pwa-install-prompt.show {
+            display: block;
+        }
+
+        .pwa-install-text {
+            font-size: 12px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .pwa-install-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pwa-install-buttons button {
+            flex: 1;
+            padding: 8px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pwa-install-yes {
+            background: var(--primary);
+            color: #0f172a;
+        }
+
+        .pwa-install-no {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header>
+            <div class="header-brand">
+                <div class="header-logo">M</div>
+                <span>MediX v2</span>
+            </div>
+            <div class="header-controls">
+                <button class="icon-button" id="syncBtn" title="Sync">📡</button>
+                <button class="icon-button" id="notifBtn" title="Notifications">
+                    🔔
+                    <div class="badge">5</div>
+                </button>
+                <button class="icon-button" id="menuBtn" title="Menu">⋮</button>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- PWA INSTALL PROMPT -->
+            <div class="pwa-install-prompt" id="pwaPrompt">
+                <div class="pwa-install-text">📱 Install MediX for quick access</div>
+                <div class="pwa-install-buttons">
+                    <button class="pwa-install-yes" onclick="installPWA()">Install</button>
+                    <button class="pwa-install-no" onclick="dismissPWA()">Dismiss</button>
+                </div>
+            </div>
+
+            <!-- DASHBOARD PAGE -->
+            <div class="content-page active" id="dashboardPage">
+                <div class="alert success">
+                    <div class="alert-title">✓ All Systems Online</div>
+                    Last sync: Just now
+                </div>
+
+                <div class="widget-grid">
+                    <div class="widget">
+                        <div class="widget-label">Total Patients</div>
+                        <div class="widget-value">2,847</div>
+                        <div class="widget-change">↑ 12%</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Available Beds</div>
+                        <div class="widget-value">45</div>
+                        <div class="widget-change negative">⚠ Low</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Active Doctors</div>
+                        <div class="widget-value">47</div>
+                        <div class="widget-change">✓ All Shifts</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Today Revenue</div>
+                        <div class="widget-value">₹4.2L</div>
+                        <div class="widget-change">↑ 18%</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">🚨 Critical Alerts</div>
+                    <div class="card-content">
+                        <div class="alert">
+                            <div class="alert-title">Patient P-001236 - Critical</div>
+                            BP dropped to 90/60. ICU-03. Attending: Dr. Sharma
+                        </div>
+                        <div class="alert warning">
+                            <div class="alert-title">O₂ Cylinder Stock Low</div>
+                            Only 11 units remaining. Minimum: 20. Order placed.
+                        </div>
+                        <div class="alert warning">
+                            <div class="alert-title">Amoxicillin Low Stock</div>
+                            90 units remaining. Reorder level: 100.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">📊 Quick Stats</div>
+                    <div class="card-content">
+                        <div class="item">
+                            <div class="item-label">
+                                <span>OPD Appointments</span>
+                                <span class="item-value">68</span>
+                            </div>
+                            <span class="status-badge">On Track</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>ICU Occupancy</span>
+                                <span class="item-value">32/50</span>
+                            </div>
+                            <span class="status-badge warning">64%</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Staff Attendance</span>
+                                <span class="item-value">256/280</span>
+                            </div>
+                            <span class="status-badge">91%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PATIENTS PAGE -->
+            <div class="content-page" id="patientsPage">
+                <div class="widget-grid">
+                    <div class="widget">
+                        <div class="widget-label">In-Patients</div>
+                        <div class="widget-value">234</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">OPD Today</div>
+                        <div class="widget-value">68</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">ICU</div>
+                        <div class="widget-value">20</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Discharged</div>
+                        <div class="widget-value">12</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="openModal('addPatientModal')">+ Register Patient</button>
+
+                <div class="card">
+                    <div class="card-title">Recent Admissions</div>
+                    <div class="card-content">
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Ravi Kumar (PT-2841)</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">58 / M • Cardiac</span>
+                            </div>
+                            <span class="status-badge">Stable</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Meena Iyer (PT-3812)</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">42 / F • Surgery</span>
+                            </div>
+                            <span class="status-badge">Post-Op</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Sunita Rao (PT-3104)</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">67 / F • Neuro</span>
+                            </div>
+                            <span class="status-badge danger">Critical</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BEDS PAGE -->
+            <div class="content-page" id="bedsPage">
+                <div class="widget-grid">
+                    <div class="widget">
+                        <div class="widget-label">Total</div>
+                        <div class="widget-value">248</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Occupied</div>
+                        <div class="widget-value" style="color: #ec4899;">228</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Free</div>
+                        <div class="widget-value" style="color: var(--success);">14</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Cleaning</div>
+                        <div class="widget-value" style="color: var(--warning);">6</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">📍 Floor 1 Status</div>
+                    <div class="card-content" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                        <div style="aspect-ratio: 1; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A101</div>
+                        <div style="aspect-ratio: 1; background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A102</div>
+                        <div style="aspect-ratio: 1; background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A103</div>
+                        <div style="aspect-ratio: 1; background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A104</div>
+                        <div style="aspect-ratio: 1; background: rgba(251, 146, 60, 0.2); border: 1px solid var(--warning); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A105</div>
+                        <div style="aspect-ratio: 1; background: rgba(236, 72, 153, 0.2); border: 1px solid #ec4899; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600;">A106</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- APPOINTMENTS PAGE -->
+            <div class="content-page" id="appointmentsPage">
+                <div class="widget-grid">
+                    <div class="widget">
+                        <div class="widget-label">Today</div>
+                        <div class="widget-value">24</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Completed</div>
+                        <div class="widget-value">18</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Ongoing</div>
+                        <div class="widget-value">3</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Scheduled</div>
+                        <div class="widget-value">3</div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" onclick="openModal('bookAppointmentModal')">+ Book Appointment</button>
+
+                <div class="card">
+                    <div class="card-title">Today's Schedule</div>
+                    <div class="card-content">
+                        <div class="item">
+                            <div class="item-label">
+                                <span>08:30</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">Sunita Rao (PT-3104)</span>
+                            </div>
+                            <span class="status-badge">✓ Done</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>09:30</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">Ravi Kumar (PT-2841)</span>
+                            </div>
+                            <span class="status-badge">✓ Done</span>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>11:00</span>
+                                <span style="font-size: 11px; color: var(--text-secondary);">Meena Iyer (PT-3012)</span>
+                            </div>
+                            <span class="status-badge warning">Ongoing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FINANCE PAGE -->
+            <div class="content-page" id="financePage">
+                <div class="widget-grid">
+                    <div class="widget">
+                        <div class="widget-label">Revenue</div>
+                        <div class="widget-value" style="font-size: 18px;">₹42L</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Expense</div>
+                        <div class="widget-value" style="font-size: 18px; color: var(--danger);">₹18L</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Profit</div>
+                        <div class="widget-value" style="font-size: 18px; color: var(--success);">₹24L</div>
+                    </div>
+                    <div class="widget">
+                        <div class="widget-label">Margin</div>
+                        <div class="widget-value" style="font-size: 18px;">57%</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Revenue by Sector</div>
+                    <div class="card-content">
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Cardiology</span>
+                            </div>
+                            <div class="item-value">₹8.5L</div>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Surgery</span>
+                            </div>
+                            <div class="item-value">₹6.2L</div>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Lab Tests</span>
+                            </div>
+                            <div class="item-value">₹4.5L</div>
+                        </div>
+                        <div class="item">
+                            <div class="item-label">
+                                <span>Pharmacy</span>
+                            </div>
+                            <div class="item-value">₹3.8L</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" onclick="switchPage('dashboardPage', this)">
+                <div class="nav-icon">📊</div>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" onclick="switchPage('patientsPage', this)">
+                <div class="nav-icon">👥</div>
+                <span>Patients</span>
+            </button>
+            <button class="nav-item" onclick="switchPage('bedsPage', this)">
+                <div class="nav-icon">🛏️</div>
+                <span>Beds</span>
+            </button>
+            <button class="nav-item" onclick="switchPage('appointmentsPage', this)">
+                <div class="nav-icon">📅</div>
+                <span>Appointments</span>
+            </button>
+            <button class="nav-item" onclick="switchPage('financePage', this)">
+                <div class="nav-icon">💰</div>
+                <span>Finance</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODALS -->
+    <div class="modal" id="addPatientModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Register Patient
+                <button class="modal-close" onclick="closeModal('addPatientModal')">✕</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" class="form-control" placeholder="Enter patient name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Age / Gender</label>
+                <input type="text" class="form-control" placeholder="e.g., 45 / M">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="tel" class="form-control" placeholder="+91-XXXXX-XXXXX">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Department</label>
+                <select class="form-control">
+                    <option>Select Department</option>
+                    <option>Cardiology</option>
+                    <option>Surgery</option>
+                    <option>Neurology</option>
+                    <option>Pediatrics</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="registerPatient()">Register Patient</button>
+        </div>
+    </div>
+
+    <div class="modal" id="bookAppointmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Book Appointment
+                <button class="modal-close" onclick="closeModal('bookAppointmentModal')">✕</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Doctor</label>
+                <select class="form-control">
+                    <option>Select Doctor</option>
+                    <option>Dr. Rajesh Sharma</option>
+                    <option>Dr. Priya Patel</option>
+                    <option>Dr. Vikram Gupta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Time</label>
+                <select class="form-control">
+                    <option>09:00 AM</option>
+                    <option>09:30 AM</option>
+                    <option>10:00 AM</option>
+                    <option>10:30 AM</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="bookAppointment()">Book Appointment</button>
+        </div>
+    </div>
+
+    <script>
+        // Service Worker Registration (PWA)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('pwaPrompt').classList.add('show');
+        });
+
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt = null;
+                dismissPWA();
+            }
+        }
+
+        function dismissPWA() {
+            document.getElementById('pwaPrompt').classList.remove('show');
+        }
+
+        // Navigation
+        function switchPage(pageId, button) {
+            document.querySelectorAll('.content-page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            button.classList.add('active');
+        }
+
+        // Modals
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // Action Handlers
+        function registerPatient() {
+            alert('Patient registered successfully!');
+            closeModal('addPatientModal');
+        }
+
+        function bookAppointment() {
+            alert('Appointment booked successfully!');
+            closeModal('bookAppointmentModal');
+        }
+
+        // Sync
+        document.getElementById('syncBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('syncBtn');
+            btn.innerHTML = '<span class="loading"></span>';
+            setTimeout(() => {
+                btn.innerHTML = '📡';
+            }, 1500);
+        });
+
+        // Notifications
+        document.getElementById('notifBtn').addEventListener('click', () => {
+            alert('5 new notifications:\n\n🔴 Patient Critical Alert\n⚠️ O₂ Stock Low\n⚠️ Medicine Low\n📅 Appointment Reminder\n✅ Order Delivered');
+        });
+
+        // Menu
+        document.getElementById('menuBtn').addEventListener('click', () => {
+            alert('Menu:\n\n⚙️ Settings\n👤 Profile\n📱 About\n🚪 Logout');
+        });
+    </script>
+</body>
+</html>

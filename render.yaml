@@ -1,0 +1,42 @@
+databases:
+  - name: medix-db
+    databaseName: medix_hospital
+    user: medix_admin
+    plan: free
+
+services:
+  - type: web
+    name: medix-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: medix-db
+          property: connectionString
+
+  - type: web
+    name: medix-admin
+    runtime: static
+    rootDir: admin
+    buildCommand: echo "no build needed"
+    staticPublishPath: .
+
+  - type: web
+    name: medix-patient
+    runtime: static
+    rootDir: patient
+    buildCommand: echo "no build needed"
+    staticPublishPath: .
+
+  - type: web
+    name: medix-mobile
+    runtime: static
+    rootDir: mobile
+    buildCommand: echo "no build needed"
+    staticPublishPath: .
