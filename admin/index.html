@@ -2,1737 +2,1195 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MediX HMS — Admin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediX HMS v4 — Admin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-/* ============================================================
-   RESET & BASE
-============================================================ */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:            #070d1a;
-  --bg2:           #0c1526;
-  --surface:       rgba(255,255,255,0.055);
-  --surface-hover: rgba(255,255,255,0.09);
-  --border:        rgba(255,255,255,0.10);
-  --border-bright: rgba(255,255,255,0.18);
-  --text:          #e8edf5;
-  --text-sub:      #7a8ba8;
-  --text-dim:      #4a5a72;
-  --accent:        #3b9eff;
-  --accent-glow:   rgba(59,158,255,0.25);
-  --green:         #22d48b;
-  --green-glow:    rgba(34,212,139,0.2);
-  --amber:         #f6a339;
-  --amber-glow:    rgba(246,163,57,0.2);
-  --red:           #f05252;
-  --red-glow:      rgba(240,82,82,0.2);
-  --purple:        #a78bfa;
-  --purple-glow:   rgba(167,139,250,0.2);
-  --pink:          #f472b6;
-  --radius:        14px;
-  --radius-sm:     8px;
-  --blur:          blur(28px) saturate(180%);
-  --spring:        cubic-bezier(0.34,1.56,0.64,1);
-  --ease:          cubic-bezier(0.25,0.46,0.45,0.94);
-  --sidebar-w:     220px;
-}
-
-html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; -webkit-font-smoothing: antialiased; }
-
-/* ============================================================
-   SCROLLBAR
-============================================================ */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
-
-/* ============================================================
-   BACKGROUNDS — animated mesh
-============================================================ */
-.bg-mesh {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(59,158,255,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(167,139,250,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 60% at 50% 50%, rgba(34,212,139,0.04) 0%, transparent 60%);
-}
-
-/* ============================================================
-   LOGIN SCREEN
-============================================================ */
-#loginScreen {
-  position: fixed; inset: 0; z-index: 999;
-  display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(ellipse at 30% 30%, rgba(59,158,255,0.08) 0%, transparent 50%),
-              radial-gradient(ellipse at 70% 70%, rgba(167,139,250,0.08) 0%, transparent 50%),
-              var(--bg);
-}
-
-.login-card {
-  width: 400px;
-  background: rgba(10,18,35,0.75);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border-bright);
-  border-radius: 22px;
-  padding: 44px 40px 40px;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset, inset 0 1px 0 rgba(255,255,255,0.12);
-  animation: cardIn .6s var(--spring) both;
-}
-
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(28px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.login-logo {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 28px;
-}
-
-.login-logo-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), #7c5cfc);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 800; color: #fff;
-  box-shadow: 0 4px 16px rgba(59,158,255,0.35);
-}
-
-.login-logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
-.login-logo-text span { color: var(--accent); }
-
-.login-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-.login-sub { font-size: 13px; color: var(--text-sub); margin-bottom: 28px; }
-
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 6px; letter-spacing: 0.3px; }
-.field input {
-  width: 100%; padding: 11px 14px;
-  background: rgba(255,255,255,0.055);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text); font-size: 14px; font-family: inherit;
-  transition: border .2s, background .2s, box-shadow .2s;
-  outline: none;
-}
-.field input:focus {
-  border-color: var(--accent);
-  background: rgba(59,158,255,0.06);
-  box-shadow: 0 0 0 3px rgba(59,158,255,0.12);
-}
-
-/* CAPTCHA */
-.captcha-block {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  margin-bottom: 20px;
-}
-.captcha-question {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-}
-.captcha-badge {
-  background: rgba(59,158,255,0.15);
-  color: var(--accent);
-  font-size: 11px; font-weight: 700; padding: 3px 8px;
-  border-radius: 20px; letter-spacing: 0.5px;
-}
-.captcha-math {
-  font-size: 15px; font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), var(--purple));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-}
-.captcha-refresh {
-  margin-left: auto; background: none; border: none; cursor: pointer;
-  color: var(--text-sub); font-size: 14px; padding: 2px;
-  transition: transform .3s var(--spring), color .2s;
-}
-.captcha-refresh:hover { color: var(--accent); transform: rotate(180deg); }
-.captcha-block input {
-  width: 100%; padding: 9px 12px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid var(--border);
-  border-radius: 6px; color: var(--text); font-size: 14px;
-  font-family: inherit; outline: none;
-  transition: border .2s, box-shadow .2s;
-}
-.captcha-block input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59,158,255,0.12);
-}
-.captcha-error { font-size: 12px; color: var(--red); margin-top: 6px; display: none; }
-
-.login-error {
-  background: rgba(240,82,82,0.1); border: 1px solid rgba(240,82,82,0.3);
-  color: var(--red); border-radius: 8px; padding: 10px 12px;
-  font-size: 13px; margin-bottom: 16px; display: none;
-}
-
-/* ============================================================
-   SPLIT BUTTON — used everywhere
-============================================================ */
-.split-btn {
-  display: inline-flex; align-items: stretch;
-  border-radius: var(--radius-sm); overflow: visible;
-  position: relative;
-}
-.split-btn .main-btn {
-  padding: 9px 16px; font-size: 13px; font-weight: 600;
-  border: none; cursor: pointer; font-family: inherit;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  transition: all .18s var(--ease);
-  white-space: nowrap;
-}
-.split-btn .arrow-btn {
-  width: 30px; border: none; cursor: pointer;
-  border-left: 1px solid rgba(0,0,0,0.2);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: 10px;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .18s var(--ease);
-}
-.split-btn.primary .main-btn, .split-btn.primary .arrow-btn {
-  background: var(--accent); color: #fff;
-}
-.split-btn.primary .main-btn:hover, .split-btn.primary .arrow-btn:hover {
-  background: #2a8ef5; box-shadow: 0 4px 16px rgba(59,158,255,0.35);
-}
-.split-btn.success .main-btn, .split-btn.success .arrow-btn {
-  background: var(--green); color: #0a1a12;
-}
-.split-btn.success .main-btn:hover, .split-btn.success .arrow-btn:hover {
-  background: #1fc47d;
-}
-.split-btn.danger .main-btn, .split-btn.danger .arrow-btn {
-  background: var(--red); color: #fff;
-}
-.split-btn.ghost .main-btn, .split-btn.ghost .arrow-btn {
-  background: var(--surface); color: var(--text);
-  border: 1px solid var(--border);
-}
-.split-btn.ghost .main-btn:hover, .split-btn.ghost .arrow-btn:hover {
-  background: var(--surface-hover);
-}
-
-/* Split dropdown */
-.split-dropdown {
-  position: absolute; top: calc(100% + 6px); right: 0;
-  background: rgba(10,18,35,0.92);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-bright); border-radius: 10px;
-  padding: 5px; min-width: 180px; z-index: 9999;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-  opacity: 0; transform: translateY(-6px) scale(0.97);
-  transition: opacity .2s, transform .25s var(--spring);
-  pointer-events: none;
-}
-.split-dropdown.open {
-  opacity: 1; transform: translateY(0) scale(1); pointer-events: all;
-}
-.split-dropdown a {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 11px; border-radius: 7px;
-  font-size: 13px; color: var(--text); text-decoration: none; cursor: pointer;
-  transition: background .15s;
-}
-.split-dropdown a:hover { background: var(--surface-hover); }
-.split-dropdown .divider { height: 1px; background: var(--border); margin: 3px 4px; }
-
-/* primary login button */
-.btn-primary-full {
-  width: 100%; padding: 12px; font-size: 14px; font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), #7c5cfc);
-  color: #fff; border: none; border-radius: var(--radius-sm);
-  cursor: pointer; font-family: inherit; letter-spacing: 0.2px;
-  transition: opacity .2s, transform .2s var(--spring), box-shadow .2s;
-  box-shadow: 0 6px 24px rgba(59,158,255,0.35);
-}
-.btn-primary-full:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 10px 32px rgba(59,158,255,0.4); }
-.btn-primary-full:active { transform: translateY(0); }
-.btn-primary-full:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-
-/* ============================================================
-   APP SHELL
-============================================================ */
-#appShell {
-  display: none; /* shown after login */
-  position: fixed; inset: 0; z-index: 1;
-}
-#appShell.visible { display: flex; }
-
-/* ============================================================
-   SIDEBAR
-============================================================ */
-.sidebar {
-  width: var(--sidebar-w); flex-shrink: 0;
-  background: rgba(8,14,28,0.7);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column; padding: 0;
-  position: relative; z-index: 10;
-}
-
-.sidebar-brand {
-  display: flex; align-items: center; gap: 10px;
-  padding: 22px 18px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.sidebar-logo {
-  width: 34px; height: 34px; border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), #7c5cfc);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: 15px; color: #fff;
-  box-shadow: 0 3px 12px rgba(59,158,255,0.35);
-  flex-shrink: 0;
-}
-.sidebar-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
-.sidebar-version { font-size: 10px; color: var(--text-dim); }
-
-.sidebar-section-label {
-  font-size: 10px; font-weight: 700; color: var(--text-dim);
-  letter-spacing: 0.8px; padding: 18px 18px 6px; text-transform: uppercase;
-}
-
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 16px; margin: 1px 8px; border-radius: var(--radius-sm);
-  cursor: pointer; color: var(--text-sub); font-size: 13px; font-weight: 500;
-  transition: background .18s, color .18s, transform .2s var(--spring);
-  position: relative; user-select: none;
-}
-.nav-item .icon { font-size: 15px; flex-shrink: 0; }
-.nav-item .label { flex: 1; }
-.nav-item .badge-count {
-  background: var(--red); color: #fff;
-  font-size: 10px; font-weight: 700; min-width: 18px; height: 18px;
-  border-radius: 9px; display: flex; align-items: center; justify-content: center;
-  padding: 0 4px;
-}
-.nav-item:hover { background: var(--surface); color: var(--text); }
-.nav-item.active {
-  background: rgba(59,158,255,0.12);
-  color: var(--accent);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-.nav-item.active .icon { filter: drop-shadow(0 0 6px rgba(59,158,255,0.6)); }
-
-.sidebar-footer {
-  margin-top: auto; padding: 14px 10px 18px;
-  border-top: 1px solid var(--border);
-}
-.user-pill {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 10px; border-radius: 10px;
-  background: var(--surface); cursor: pointer;
-  transition: background .18s;
-}
-.user-pill:hover { background: var(--surface-hover); }
-.user-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--purple));
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 12px; flex-shrink: 0;
-}
-.user-name { font-size: 12px; font-weight: 600; }
-.user-role { font-size: 10px; color: var(--text-sub); }
-.logout-btn {
-  margin-left: auto; background: none; border: none;
-  color: var(--text-sub); cursor: pointer; font-size: 14px;
-  padding: 2px; transition: color .15s;
-}
-.logout-btn:hover { color: var(--red); }
-
-/* ============================================================
-   MAIN AREA
-============================================================ */
-.main-area {
-  flex: 1; display: flex; flex-direction: column; overflow: hidden;
-}
-
-.topbar {
-  height: 56px; flex-shrink: 0;
-  display: flex; align-items: center; gap: 12px; padding: 0 24px;
-  background: rgba(8,14,28,0.5);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-}
-.topbar-title { font-size: 16px; font-weight: 700; flex: 1; }
-.topbar-subtitle { font-size: 12px; color: var(--text-sub); }
-
-.search-box {
-  position: relative;
-}
-.search-box input {
-  width: 200px; padding: 7px 12px 7px 32px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: 20px; color: var(--text); font-size: 13px;
-  font-family: inherit; outline: none;
-  transition: width .3s var(--ease), border .2s, background .2s;
-}
-.search-box input:focus { width: 260px; border-color: var(--accent); background: rgba(59,158,255,0.06); }
-.search-box::before { content: '🔍'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; }
-
-.topbar-icon {
-  width: 34px; height: 34px; border-radius: 8px;
-  background: var(--surface); border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 14px; position: relative;
-  transition: background .18s, transform .2s var(--spring);
-}
-.topbar-icon:hover { background: var(--surface-hover); transform: scale(1.08); }
-.topbar-icon .dot {
-  position: absolute; top: 4px; right: 4px;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--red); border: 2px solid var(--bg);
-}
-
-/* ============================================================
-   PAGES
-============================================================ */
-.pages-area {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
-  padding: 24px;
-}
-
-.page { display: none; animation: pageIn .35s var(--spring) both; }
-.page.active { display: block; }
-
-@keyframes pageIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ============================================================
-   STAT CARDS ROW
-============================================================ */
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px; margin-bottom: 22px;
-}
-
-.stat-card {
-  background: var(--surface);
-  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 18px;
-  position: relative; overflow: hidden;
-  transition: transform .25s var(--spring), box-shadow .25s, border-color .25s;
-  cursor: default;
-}
-.stat-card::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
-  pointer-events: none;
-}
-.stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
-  border-color: var(--border-bright);
-}
-.stat-icon {
-  font-size: 20px; margin-bottom: 10px;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 38px; height: 38px; border-radius: 9px;
-}
-.stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 2px; }
-.stat-label { font-size: 12px; color: var(--text-sub); font-weight: 500; }
-.stat-delta { font-size: 11px; margin-top: 6px; }
-.stat-delta.up { color: var(--green); }
-.stat-delta.down { color: var(--red); }
-
-/* color variants */
-.stat-card.blue  .stat-icon { background: rgba(59,158,255,0.15); }
-.stat-card.blue  .stat-value { color: var(--accent); }
-.stat-card.green .stat-icon { background: rgba(34,212,139,0.15); }
-.stat-card.green .stat-value { color: var(--green); }
-.stat-card.amber .stat-icon { background: rgba(246,163,57,0.15); }
-.stat-card.amber .stat-value { color: var(--amber); }
-.stat-card.red   .stat-icon { background: rgba(240,82,82,0.15); }
-.stat-card.red   .stat-value { color: var(--red); }
-.stat-card.purple .stat-icon { background: rgba(167,139,250,0.15); }
-.stat-card.purple .stat-value { color: var(--purple); }
-
-/* ============================================================
-   GLASS CARD / PANEL
-============================================================ */
-.glass-card {
-  background: var(--surface);
-  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  margin-bottom: 20px;
-}
-.card-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
-}
-.card-header-title { font-size: 14px; font-weight: 700; flex: 1; }
-.card-header-sub { font-size: 12px; color: var(--text-sub); }
-
-/* ============================================================
-   TABLE
-============================================================ */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-thead tr { border-bottom: 1px solid var(--border); }
-th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-sub); letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; }
-td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.04); white-space: nowrap; }
-tbody tr { transition: background .15s; }
-tbody tr:hover { background: rgba(255,255,255,0.03); }
-tbody tr:last-child td { border-bottom: none; }
-
-/* ============================================================
-   BADGES
-============================================================ */
-.badge {
-  display: inline-flex; align-items: center;
-  padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
-}
-.badge.green  { background: rgba(34,212,139,0.15); color: var(--green); }
-.badge.red    { background: rgba(240,82,82,0.15); color: var(--red); }
-.badge.amber  { background: rgba(246,163,57,0.15); color: var(--amber); }
-.badge.blue   { background: rgba(59,158,255,0.15); color: var(--accent); }
-.badge.purple { background: rgba(167,139,250,0.15); color: var(--purple); }
-
-/* ============================================================
-   MODAL
-============================================================ */
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 9990;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  display: flex; align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none;
-  transition: opacity .2s;
-}
-.modal-backdrop.open { opacity: 1; pointer-events: all; }
-.modal-box {
-  width: 480px; max-height: 90vh; overflow-y: auto;
-  background: rgba(8,16,32,0.9);
-  backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
-  border: 1px solid var(--border-bright);
-  border-radius: 18px; padding: 28px;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.6);
-  transform: scale(0.95) translateY(16px);
-  transition: transform .3s var(--spring);
-}
-.modal-backdrop.open .modal-box { transform: scale(1) translateY(0); }
-.modal-title {
-  font-size: 16px; font-weight: 700; margin-bottom: 20px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.modal-close {
-  background: none; border: none; cursor: pointer;
-  color: var(--text-sub); font-size: 18px;
-  transition: color .15s, transform .2s var(--spring);
-}
-.modal-close:hover { color: var(--red); transform: rotate(90deg); }
-.modal-form-row { margin-bottom: 14px; }
-.modal-form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 5px; }
-.modal-form-row input, .modal-form-row select {
-  width: 100%; padding: 10px 12px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text); font-size: 13px; font-family: inherit; outline: none;
-  transition: border .2s, box-shadow .2s;
-  -webkit-appearance: none;
-}
-.modal-form-row input:focus, .modal-form-row select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59,158,255,0.12);
-}
-.modal-form-row select option { background: #0c1526; }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-
-/* ============================================================
-   TOAST
-============================================================ */
-#toastContainer {
-  position: fixed; bottom: 24px; right: 24px; z-index: 99999;
-  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
-}
-.toast {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; border-radius: 10px; min-width: 260px;
-  background: rgba(10,20,40,0.92);
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border-bright);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  font-size: 13px; font-weight: 500;
-  animation: toastIn .35s var(--spring) both;
-  pointer-events: all;
-}
-.toast.out { animation: toastOut .25s var(--ease) both; }
-@keyframes toastIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
-@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(20px); } }
-.toast-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.toast.success .toast-dot { background: var(--green); }
-.toast.error   .toast-dot { background: var(--red); }
-.toast.info    .toast-dot { background: var(--accent); }
-
-/* ============================================================
-   BED GRID
-============================================================ */
-.bed-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 8px; padding: 20px;
-}
-.bed-cell {
-  aspect-ratio: 1; border-radius: 10px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 4px; font-size: 11px; font-weight: 700;
-  border: 1px solid transparent;
-  transition: transform .22s var(--spring), box-shadow .22s;
-  cursor: pointer;
-}
-.bed-cell:hover { transform: scale(1.06); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-.bed-cell .bed-num { font-size: 13px; font-weight: 800; }
-.bed-cell.free    { background: rgba(34,212,139,0.12); border-color: rgba(34,212,139,0.3); color: var(--green); }
-.bed-cell.occupied{ background: rgba(240,82,82,0.12); border-color: rgba(240,82,82,0.3); color: var(--red); }
-.bed-cell.icu     { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.3); color: var(--purple); }
-
-/* ============================================================
-   EMPTY STATE
-============================================================ */
-.empty-state {
-  text-align: center; padding: 48px 20px; color: var(--text-sub);
-}
-.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
-.empty-state p { font-size: 13px; }
-
-/* ============================================================
-   PROGRESS BAR (medicines)
-============================================================ */
-.progress-bar {
-  height: 5px; background: rgba(255,255,255,0.07);
-  border-radius: 3px; overflow: hidden; margin-top: 4px;
-}
-.progress-fill {
-  height: 100%; border-radius: 3px;
-  transition: width .5s var(--ease);
-}
-
-/* ============================================================
-   LOADING SPINNER
-============================================================ */
-.spinner {
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.1);
-  border-top-color: var(--accent);
-  animation: spin .7s linear infinite; display: inline-block;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.loading-row td { text-align: center; padding: 32px; }
-
-/* ============================================================
-   GRID UTILITIES
-============================================================ */
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
-
-/* ============================================================
-   PULSE INDICATOR
-============================================================ */
-.pulse {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 0 rgba(34,212,139,0.4);
-  animation: pulse 2s infinite;
-  display: inline-block;
-}
-@keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(34,212,139,0.4); }
-  70%  { box-shadow: 0 0 0 8px rgba(34,212,139,0); }
-  100% { box-shadow: 0 0 0 0 rgba(34,212,139,0); }
-}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#060d1c;--bg2:#0a1428;
+--s1:rgba(255,255,255,0.045);--s2:rgba(255,255,255,0.08);
+--bd:rgba(255,255,255,0.09);--bds:rgba(255,255,255,0.16);
+--txt:#dde6f5;--sub:#6b7f9a;--dim:#3a4a60;
+--acc:#3b9eff;--acc2:#7c5cfc;
+--grn:#22d48b;--grn-g:rgba(34,212,139,.18);
+--amb:#f5a623;--amb-g:rgba(245,166,35,.18);
+--red:#f05252;--red-g:rgba(240,82,82,.18);
+--pur:#a78bfa;--pur-g:rgba(167,139,250,.18);
+--pnk:#f472b6;--tel:#2dd4bf;
+--r:14px;--rs:8px;
+--blur:blur(28px) saturate(180%);
+--spring:cubic-bezier(.34,1.56,.64,1);
+--ease:cubic-bezier(.25,.46,.45,.94);
+--sw:238px;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;
+background:var(--bg);color:var(--txt);overflow:hidden;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+.bg-mesh{position:fixed;inset:0;z-index:0;pointer-events:none;
+background:
+  radial-gradient(ellipse 70% 60% at 15% 5%,rgba(59,158,255,.07) 0%,transparent 55%),
+  radial-gradient(ellipse 50% 40% at 85% 85%,rgba(124,92,252,.07) 0%,transparent 55%),
+  radial-gradient(ellipse 40% 50% at 50% 50%,rgba(34,212,139,.04) 0%,transparent 60%)}
+/* LOGIN */
+#ls{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;
+background:radial-gradient(ellipse at 30% 25%,rgba(59,158,255,.09) 0%,transparent 50%),
+radial-gradient(ellipse at 70% 75%,rgba(124,92,252,.09) 0%,transparent 50%),var(--bg)}
+.lcard{width:410px;background:rgba(8,16,34,.8);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+border:1px solid var(--bds);border-radius:22px;padding:44px 40px 40px;
+box-shadow:0 48px 96px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.1);
+animation:cardIn .6s var(--spring) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:none}}
+.lbrand{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.llogo{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,var(--acc),var(--acc2));
+display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;color:#fff;
+box-shadow:0 4px 18px rgba(59,158,255,.38)}
+.lname{font-size:21px;font-weight:700;letter-spacing:-.4px}
+.lname span{color:var(--acc)}
+.ltitle{font-size:22px;font-weight:700;margin-bottom:5px}
+.lsub{font-size:13px;color:var(--sub);margin-bottom:26px}
+.lerr{background:rgba(240,82,82,.1);border:1px solid rgba(240,82,82,.3);color:var(--red);
+border-radius:8px;padding:10px 13px;font-size:13px;margin-bottom:14px;display:none}
+.fld{margin-bottom:15px}
+.fld label{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-bottom:5px;
+letter-spacing:.4px;text-transform:uppercase}
+.fld input{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);
+border:1px solid var(--bd);border-radius:var(--rs);color:var(--txt);font-size:14px;
+font-family:inherit;outline:none;transition:border .2s,background .2s,box-shadow .2s}
+.fld input:focus{border-color:var(--acc);background:rgba(59,158,255,.06);
+box-shadow:0 0 0 3px rgba(59,158,255,.14)}
+.cap{background:rgba(255,255,255,.04);border:1px solid var(--bd);border-radius:var(--rs);padding:13px;margin-bottom:18px}
+.cap-q{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.cap-badge{background:rgba(59,158,255,.15);color:var(--acc);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px}
+.cap-math{font-size:16px;font-weight:800;background:linear-gradient(135deg,var(--acc),var(--pur));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.cap-ref{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--sub);font-size:15px;
+transition:transform .3s var(--spring),color .2s}
+.cap-ref:hover{color:var(--acc);transform:rotate(180deg)}
+.cap input{width:100%;padding:9px 12px;background:rgba(255,255,255,.07);border:1px solid var(--bd);
+border-radius:6px;color:var(--txt);font-size:14px;font-family:inherit;outline:none;
+transition:border .2s,box-shadow .2s}
+.cap input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(59,158,255,.12)}
+.cap-err{font-size:12px;color:var(--red);margin-top:5px;display:none}
+.lpbtn{width:100%;padding:12px;font-size:14px;font-weight:700;
+background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:none;
+border-radius:var(--rs);cursor:pointer;font-family:inherit;
+transition:opacity .2s,transform .2s var(--spring),box-shadow .2s;
+box-shadow:0 6px 24px rgba(59,158,255,.35)}
+.lpbtn:hover{opacity:.92;transform:translateY(-1px);box-shadow:0 10px 32px rgba(59,158,255,.4)}
+.lpbtn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* APP */
+#app{display:none;position:fixed;inset:0;z-index:1}
+#app.show{display:flex}
+/* SIDEBAR */
+.sidebar{width:var(--sw);flex-shrink:0;background:rgba(6,11,22,.78);
+backdrop-filter:blur(32px) saturate(200%);-webkit-backdrop-filter:blur(32px) saturate(200%);
+border-right:1px solid var(--bd);display:flex;flex-direction:column;z-index:10}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:20px 18px 16px;border-bottom:1px solid var(--bd)}
+.sb-logo{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--acc),var(--acc2));
+display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;
+box-shadow:0 3px 14px rgba(59,158,255,.38);flex-shrink:0}
+.sb-name{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.sb-ver{font-size:10px;color:var(--dim)}
+.sb-sec{font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.8px;
+padding:16px 18px 5px;text-transform:uppercase}
+.nav{display:flex;align-items:center;gap:9px;padding:8px 14px;margin:1px 8px;
+border-radius:var(--rs);cursor:pointer;color:var(--sub);font-size:13px;font-weight:500;
+transition:background .18s,color .18s,transform .2s var(--spring);user-select:none}
+.nav .ic{font-size:15px;flex-shrink:0}
+.nav .lbl{flex:1}
+.nav .cnt{background:var(--red);color:#fff;font-size:10px;font-weight:700;
+min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.nav:hover{background:var(--s2);color:var(--txt)}
+.nav.on{background:rgba(59,158,255,.13);color:var(--acc);box-shadow:inset 2px 0 0 var(--acc)}
+.nav.on .ic{filter:drop-shadow(0 0 6px rgba(59,158,255,.55))}
+.sb-foot{margin-top:auto;padding:12px 10px 16px;border-top:1px solid var(--bd)}
+.upill{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;
+background:var(--s1);cursor:pointer;transition:background .18s}
+.upill:hover{background:var(--s2)}
+.uav{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--pur));
+display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.uname{font-size:12px;font-weight:600}
+.urole{font-size:10px;color:var(--sub)}
+.ulout{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--sub);
+font-size:14px;padding:2px;transition:color .15s}
+.ulout:hover{color:var(--red)}
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:56px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 22px;
+background:rgba(6,11,22,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+border-bottom:1px solid var(--bd)}
+.tb-title{font-size:16px;font-weight:700;flex:1}
+.tb-sub{font-size:11px;color:var(--sub)}
+.search{position:relative}
+.search input{width:200px;padding:7px 12px 7px 32px;background:var(--s1);border:1px solid var(--bd);
+border-radius:20px;color:var(--txt);font-size:13px;font-family:inherit;outline:none;
+transition:width .3s var(--ease),border .2s,background .2s}
+.search input:focus{width:250px;border-color:var(--acc);background:rgba(59,158,255,.06)}
+.search::before{content:'🔍';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px}
+.tbic{width:34px;height:34px;border-radius:8px;background:var(--s1);border:1px solid var(--bd);
+display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;position:relative;
+transition:background .18s,transform .2s var(--spring)}
+.tbic:hover{background:var(--s2);transform:scale(1.08)}
+.tbic .dot{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;
+background:var(--red);border:2px solid var(--bg)}
+/* PAGES */
+.pages{flex:1;overflow-y:auto;overflow-x:hidden;padding:22px}
+.page{display:none;animation:pgIn .35s var(--spring) both}
+.page.on{display:block}
+@keyframes pgIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:20px}
+.sc{background:var(--s1);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+border:1px solid var(--bd);border-radius:var(--r);padding:16px;position:relative;overflow:hidden;
+transition:transform .25s var(--spring),box-shadow .25s,border-color .25s;cursor:default}
+.sc::before{content:'';position:absolute;inset:0;
+background:linear-gradient(135deg,rgba(255,255,255,.04) 0%,transparent 50%);pointer-events:none}
+.sc:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.32);border-color:var(--bds)}
+.sc-ic{font-size:18px;margin-bottom:10px;width:36px;height:36px;border-radius:9px;
+display:flex;align-items:center;justify-content:center}
+.sc-val{font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:2px}
+.sc-lbl{font-size:11px;color:var(--sub);font-weight:500}
+.sc-dl{font-size:11px;margin-top:5px}
+.sc-dl.up{color:var(--grn)}.sc-dl.dn{color:var(--red)}.sc-dl.nt{color:var(--sub)}
+.sc.blue .sc-ic{background:rgba(59,158,255,.15)}.sc.blue .sc-val{color:var(--acc)}
+.sc.grn .sc-ic{background:var(--grn-g)}.sc.grn .sc-val{color:var(--grn)}
+.sc.amb .sc-ic{background:var(--amb-g)}.sc.amb .sc-val{color:var(--amb)}
+.sc.red .sc-ic{background:var(--red-g)}.sc.red .sc-val{color:var(--red)}
+.sc.pur .sc-ic{background:var(--pur-g)}.sc.pur .sc-val{color:var(--pur)}
+.sc.pnk .sc-ic{background:rgba(244,114,182,.15)}.sc.pnk .sc-val{color:var(--pnk)}
+.sc.tel .sc-ic{background:rgba(45,212,191,.15)}.sc.tel .sc-val{color:var(--tel)}
+/* GLASS CARD */
+.gc{background:var(--s1);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.gh{display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--bd);flex-wrap:wrap;gap:8px}
+.gh-title{font-size:13px;font-weight:700;flex:1;min-width:100px}
+.gh-sub{font-size:11px;color:var(--sub)}
+.gc-body{padding:16px}
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:900px){.g2,.g3{grid-template-columns:1fr}}
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--bd)}
+th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--sub);
+letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+td{padding:11px 14px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+tbody tr:last-child td{border-bottom:none}
+/* BADGES */
+.b{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;
+font-size:10px;font-weight:700;letter-spacing:.3px}
+.b.grn{background:var(--grn-g);color:var(--grn)}
+.b.red{background:var(--red-g);color:var(--red)}
+.b.amb{background:var(--amb-g);color:var(--amb)}
+.b.blue{background:rgba(59,158,255,.15);color:var(--acc)}
+.b.pur{background:var(--pur-g);color:var(--pur)}
+.b.pnk{background:rgba(244,114,182,.15);color:var(--pnk)}
+.b.dim{background:rgba(255,255,255,.07);color:var(--sub)}
+/* SPLIT BUTTON */
+.sb{display:inline-flex;align-items:stretch;border-radius:var(--rs);overflow:visible;position:relative}
+.sb .mb,.sb .ab{border:none;cursor:pointer;font-family:inherit;transition:all .18s var(--ease)}
+.sb .mb{padding:8px 14px;font-size:12px;font-weight:600;border-radius:var(--rs) 0 0 var(--rs);white-space:nowrap}
+.sb .ab{width:28px;border-left:1px solid rgba(0,0,0,.2);border-radius:0 var(--rs) var(--rs) 0;
+font-size:10px;display:flex;align-items:center;justify-content:center}
+.sb.pri .mb,.sb.pri .ab{background:var(--acc);color:#fff}
+.sb.pri .mb:hover,.sb.pri .ab:hover{background:#2a8ef5;box-shadow:0 4px 14px rgba(59,158,255,.35)}
+.sb.suc .mb,.sb.suc .ab{background:var(--grn);color:#071a0f}
+.sb.suc .mb:hover,.sb.suc .ab:hover{background:#1db873}
+.sb.dan .mb,.sb.dan .ab{background:var(--red);color:#fff}
+.sb.gho .mb,.sb.gho .ab{background:var(--s1);color:var(--txt);border:1px solid var(--bd)}
+.sb.gho .mb:hover,.sb.gho .ab:hover{background:var(--s2)}
+.sb.ambb .mb,.sb.ambb .ab{background:var(--amb);color:#1a0d00}
+.sdrop{position:absolute;top:calc(100% + 5px);right:0;background:rgba(8,14,28,.96);
+backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--bds);
+border-radius:10px;padding:5px;min-width:175px;z-index:9999;
+box-shadow:0 22px 44px rgba(0,0,0,.5);opacity:0;transform:translateY(-5px) scale(.97);
+transition:opacity .18s,transform .24s var(--spring);pointer-events:none}
+.sdrop.on{opacity:1;transform:none;pointer-events:all}
+.sdrop a{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:7px;
+font-size:12px;color:var(--txt);text-decoration:none;cursor:pointer;transition:background .15s}
+.sdrop a:hover{background:var(--s2)}
+.sdrop .dv{height:1px;background:var(--bd);margin:3px 4px}
+/* MODAL */
+.mback{position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,.6);
+backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.mback.on{opacity:1;pointer-events:all}
+.mbox{width:500px;max-height:88vh;overflow-y:auto;background:rgba(7,13,27,.94);
+backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid var(--bds);
+border-radius:18px;padding:26px;box-shadow:0 42px 84px rgba(0,0,0,.6);
+transform:scale(.94) translateY(18px);transition:transform .3s var(--spring)}
+.mback.on .mbox{transform:none}
+.mtitle{font-size:15px;font-weight:700;margin-bottom:18px;
+display:flex;align-items:center;justify-content:space-between}
+.mclose{background:none;border:none;cursor:pointer;color:var(--sub);font-size:18px;
+transition:color .15s,transform .2s var(--spring)}
+.mclose:hover{color:var(--red);transform:rotate(90deg)}
+.mrow{margin-bottom:13px}
+.mrow label{display:block;font-size:11px;font-weight:600;color:var(--sub);margin-bottom:4px;
+letter-spacing:.4px;text-transform:uppercase}
+.mrow input,.mrow select,.mrow textarea{width:100%;padding:10px 12px;
+background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:var(--rs);
+color:var(--txt);font-size:13px;font-family:inherit;outline:none;
+transition:border .2s,box-shadow .2s;-webkit-appearance:none}
+.mrow input:focus,.mrow select:focus,.mrow textarea:focus{border-color:var(--acc);
+box-shadow:0 0 0 3px rgba(59,158,255,.12)}
+.mrow select option{background:#0a1428}
+.mrow textarea{resize:vertical;min-height:70px}
+.mact{display:flex;gap:9px;justify-content:flex-end;margin-top:18px}
+/* TOAST */
+#tc{position:fixed;bottom:22px;right:22px;z-index:99999;
+display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:10px;min-width:255px;
+background:rgba(8,16,32,.95);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+border:1px solid var(--bds);box-shadow:0 12px 32px rgba(0,0,0,.4);
+font-size:13px;font-weight:500;animation:tin .3s var(--spring) both;pointer-events:all}
+.toast.out{animation:tout .22s var(--ease) both}
+@keyframes tin{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes tout{from{opacity:1;transform:none}to{opacity:0;transform:translateX(18px)}}
+.td{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.toast.s .td{background:var(--grn)}.toast.e .td{background:var(--red)}
+.toast.i .td{background:var(--acc)}.toast.w .td{background:var(--amb)}
+/* MISC */
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--grn);
+box-shadow:0 0 0 0 rgba(34,212,139,.4);animation:pulse 2s infinite;display:inline-block}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,212,139,.4)}70%{box-shadow:0 0 0 8px rgba(34,212,139,0)}100%{box-shadow:0 0 0 0 rgba(34,212,139,0)}}
+.spin{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.1);
+border-top-color:var(--acc);animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.ldr td{text-align:center;padding:32px}
+.bed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px;padding:16px}
+.bed-cell{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;
+align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:700;
+border:1px solid transparent;transition:transform .22s var(--spring),box-shadow .22s;cursor:pointer}
+.bed-cell:hover{transform:scale(1.07);box-shadow:0 7px 22px rgba(0,0,0,.3)}
+.bed-cell .bn{font-size:12px;font-weight:800}
+.bed-cell.free{background:var(--grn-g);border-color:rgba(34,212,139,.3);color:var(--grn)}
+.bed-cell.occupied{background:var(--red-g);border-color:rgba(240,82,82,.3);color:var(--red)}
+.bed-cell.cleaning{background:var(--amb-g);border-color:rgba(245,166,35,.3);color:var(--amb)}
+.bed-cell.icu{background:var(--pur-g);border-color:rgba(167,139,250,.3);color:var(--pur)}
+.bed-cell.maintenance{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--sub)}
+.chart-wrap{position:relative;padding:16px}
+.chart-wrap canvas{max-height:220px}
+.prog-bar{height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;margin-top:4px}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s var(--ease)}
+.notif-panel{position:fixed;top:0;right:-380px;bottom:0;width:360px;z-index:998;
+background:rgba(6,11,22,.95);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);
+border-left:1px solid var(--bds);padding:20px;overflow-y:auto;
+transition:right .3s var(--spring)}
+.notif-panel.on{right:0}
+.np-title{font-size:14px;font-weight:700;margin-bottom:14px;
+display:flex;align-items:center;justify-content:space-between}
+.ni{background:var(--s1);border:1px solid var(--bd);border-radius:10px;
+padding:12px;margin-bottom:8px;cursor:pointer;transition:background .15s,border-color .15s}
+.ni:hover{background:var(--s2);border-color:var(--bds)}
+.ni.unread{border-left:3px solid var(--acc)}
+.ni.critical{border-left-color:var(--red) !important}
+.ni-head{display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap}
+.ni-time{font-size:10px;color:var(--dim);margin-left:auto;white-space:nowrap}
+.ni-title{font-size:12px;font-weight:600;margin-bottom:3px}
+.ni-msg{font-size:11px;color:var(--sub);line-height:1.5}
+.qr-box{border:2px dashed rgba(59,158,255,.4);border-radius:12px;padding:32px;
+text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
+.qr-box:hover{border-color:var(--acc);background:rgba(59,158,255,.04)}
+.qr-out{display:none;background:var(--grn-g);border:1px solid rgba(34,212,139,.3);
+border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
 </style>
 </head>
 <body>
 <div class="bg-mesh"></div>
 
-<!-- ============================================================
-     LOGIN SCREEN
-============================================================ -->
-<div id="loginScreen">
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-icon">M</div>
-      <div>
-        <div class="login-logo-text">Medi<span>X</span> HMS</div>
-        <div style="font-size:10px;color:var(--text-sub)">Healthcare Management System</div>
-      </div>
-    </div>
-
-    <div class="login-title">Welcome back</div>
-    <div class="login-sub">Sign in to access your dashboard</div>
-
-    <div class="login-error" id="loginError"></div>
-
-    <div class="field">
-      <label>Email address</label>
-      <input type="email" id="loginEmail" placeholder="admin@medix.com" autocomplete="username">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-    </div>
-
-    <!-- CAPTCHA -->
-    <div class="captcha-block">
-      <div class="captcha-question">
-        <span class="captcha-badge">CAPTCHA</span>
-        <span class="captcha-math" id="captchaQuestion">Loading…</span>
-        <button class="captcha-refresh" id="captchaRefresh" title="New question">↻</button>
-      </div>
-      <input type="number" id="captchaAnswer" placeholder="Type the answer here">
-      <div class="captcha-error" id="captchaError">❌ Incorrect answer — try again</div>
-    </div>
-
-    <button class="btn-primary-full" id="loginBtn" onclick="handleLogin()">
-      Sign in to MediX
-    </button>
-
-    <div style="margin-top:18px;text-align:center;font-size:12px;color:var(--text-dim)">
-      First time? Create an admin account — see setup instructions
+<!-- LOGIN -->
+<div id="ls">
+<div class="lcard">
+  <div class="lbrand">
+    <div class="llogo">M</div>
+    <div>
+      <div class="lname">Medi<span>X</span> HMS</div>
+      <div style="font-size:10px;color:var(--sub)">Healthcare Management System v4</div>
     </div>
   </div>
+  <div class="ltitle">Sign in to Admin</div>
+  <div class="lsub">Secure access with CAPTCHA verification</div>
+  <div class="lerr" id="lerr"></div>
+  <div class="fld"><label>Email address</label><input id="lemail" type="email" placeholder="admin@medix.com" autocomplete="username"></div>
+  <div class="fld"><label>Password</label><input id="lpass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+  <div class="cap">
+    <div class="cap-q">
+      <span class="cap-badge">CAPTCHA</span>
+      <span class="cap-math" id="capQ">—</span>
+      <button class="cap-ref" id="capRef" title="Refresh">↻</button>
+    </div>
+    <input type="number" id="capA" placeholder="Type the answer">
+    <div class="cap-err" id="capErr">❌ Wrong answer — try again</div>
+  </div>
+  <button class="lpbtn" id="lbtn" onclick="doLogin()">Sign in to MediX</button>
+  <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--dim)">
+    First use: POST /api/auth/register with setupKey: medix-setup-2026
+  </div>
+</div>
 </div>
 
-<!-- ============================================================
-     APP SHELL
-============================================================ -->
-<div id="appShell">
+<!-- APP SHELL -->
+<div id="app">
+<nav class="sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo">M</div>
+    <div>
+      <div class="sb-name">MediX HMS</div>
+      <div class="sb-ver">v4 · Live · <span class="pulse"></span></div>
+    </div>
+  </div>
+  <div class="sb-sec">Main</div>
+  <div class="nav on" onclick="pg('dash',this)"><span class="ic">📊</span><span class="lbl">Overview</span></div>
+  <div class="sb-sec">People</div>
+  <div class="nav" onclick="pg('patients',this)"><span class="ic">👥</span><span class="lbl">Patients</span></div>
+  <div class="nav" onclick="pg('doctors',this)"><span class="ic">👨‍⚕️</span><span class="lbl">Doctors & Staff</span></div>
+  <div class="sb-sec">Clinical</div>
+  <div class="nav" onclick="pg('beds',this)"><span class="ic">🛏️</span><span class="lbl">Beds & ICU</span></div>
+  <div class="nav" onclick="pg('attendance',this)"><span class="ic">📋</span><span class="lbl">Attendance & QR</span></div>
+  <div class="nav" onclick="pg('appts',this)"><span class="ic">📅</span><span class="lbl">Appointments</span></div>
+  <div class="sb-sec">Finance</div>
+  <div class="nav" onclick="pg('pharmacy',this)"><span class="ic">💊</span><span class="lbl">Pharmacy & Stock</span><span class="cnt" id="lowBadge" style="display:none">!</span></div>
+  <div class="nav" onclick="pg('orders',this)"><span class="ic">📦</span><span class="lbl">Orders</span></div>
+  <div class="nav" onclick="pg('finance',this)"><span class="ic">💰</span><span class="lbl">Revenue & Finance</span></div>
+  <div class="sb-sec">System</div>
+  <div class="nav" onclick="toggleNotif()"><span class="ic">🔔</span><span class="lbl">Notifications</span><span class="cnt" id="nBadge">0</span></div>
+  <div class="sb-foot">
+    <div class="upill">
+      <div class="uav" id="uav">A</div>
+      <div><div class="uname" id="uname">Admin</div><div class="urole" id="urole">ADMIN</div></div>
+      <button class="ulout" onclick="doLogout()" title="Sign out">⏻</button>
+    </div>
+  </div>
+</nav>
 
-  <!-- SIDEBAR -->
-  <nav class="sidebar">
-    <div class="sidebar-brand">
-      <div class="sidebar-logo">M</div>
-      <div>
-        <div class="sidebar-name">MediX HMS</div>
-        <div class="sidebar-version">v3.0 · Live</div>
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="tb-title" id="tbtitle">Overview Dashboard</div>
+      <div class="tb-sub">Live data · <span id="clk"></span></div>
+    </div>
+    <div class="search"><input type="text" placeholder="Search…" id="gsearch"></div>
+    <div class="tbic" onclick="refresh()" title="Refresh">🔄</div>
+    <div class="tbic" title="Live"><span class="pulse"></span></div>
+    <div class="sb pri" style="flex-shrink:0">
+      <button class="mb" onclick="openM('patM')">+ Quick Add</button>
+      <button class="ab" onclick="td('qaD')">▾</button>
+      <div class="sdrop" id="qaD">
+        <a onclick="openM('patM');cd()">👥 New Patient</a>
+        <a onclick="openM('docM');cd()">👨‍⚕️ New Doctor</a>
+        <a onclick="openM('apptM');cd()">📅 New Appointment</a>
+        <a onclick="openM('orderM');cd()">📦 New Order</a>
+        <div class="dv"></div>
+        <a onclick="refresh();cd()">🔄 Refresh All</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="pages">
+
+    <!-- OVERVIEW PAGE -->
+    <div class="page on" id="dashPage">
+      <div class="sg" id="ovStats">
+        <div class="sc blue"><div class="sc-ic">👥</div><div class="sc-val" id="ov1">—</div><div class="sc-lbl">Total Patients</div><div class="sc-dl up" id="ov1s">—</div></div>
+        <div class="sc red"><div class="sc-ic">🏥</div><div class="sc-val" id="ov2">—</div><div class="sc-lbl">In-Patients</div><div class="sc-dl nt" id="ov2s">—</div></div>
+        <div class="sc pur"><div class="sc-ic">💊</div><div class="sc-val" id="ov3">—</div><div class="sc-lbl">ICU Patients</div><div class="sc-dl nt" id="ov3s">—</div></div>
+        <div class="sc grn"><div class="sc-ic">👨‍⚕️</div><div class="sc-val" id="ov4">—</div><div class="sc-lbl">Doctors On Duty</div><div class="sc-dl up" id="ov4s">—</div></div>
+        <div class="sc grn"><div class="sc-ic">🛏️</div><div class="sc-val" id="ov5">—</div><div class="sc-lbl">Free Beds</div><div class="sc-dl nt" id="ov5s">—</div></div>
+        <div class="sc amb"><div class="sc-ic">📅</div><div class="sc-val" id="ov6">—</div><div class="sc-lbl">Today's Apts</div><div class="sc-dl nt">—</div></div>
+        <div class="sc amb"><div class="sc-ic">⚠️</div><div class="sc-val" id="ov7">—</div><div class="sc-lbl">Low Stock</div><div class="sc-dl dn">Needs reorder</div></div>
+        <div class="sc pnk"><div class="sc-ic">💰</div><div class="sc-val" id="ov8">—</div><div class="sc-lbl">Monthly Revenue</div><div class="sc-dl up">This month</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📈</span><span class="gh-title">Revenue vs Expense</span>
+            <div class="sb gho"><button class="mb" onclick="pg('finance',null)">Finance</button><button class="ab" onclick="td('ovFD')">▾</button><div class="sdrop" id="ovFD"><a onclick="pg('finance',null);cd()">💰 Finance Dashboard</a></div></div>
+          </div>
+          <div class="chart-wrap"><canvas id="ovRevChart"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>🛏️</span><span class="gh-title">Bed Occupancy</span>
+            <div class="sb gho"><button class="mb" onclick="pg('beds',null)">Beds</button><button class="ab" onclick="td('ovBD')">▾</button><div class="sdrop" id="ovBD"><a onclick="pg('beds',null);cd()">🛏️ Bed Dashboard</a></div></div>
+          </div>
+          <div class="chart-wrap"><canvas id="ovBedChart"></canvas></div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>👥</span><span class="gh-title">Recent Patients</span>
+            <div class="sb gho"><button class="mb" onclick="pg('patients',null)">View All</button><button class="ab" onclick="td('ovPD')">▾</button><div class="sdrop" id="ovPD"><a onclick="openM('patM');cd()">➕ Add Patient</a><a onclick="pg('patients',null);cd()">👥 All Patients</a></div></div>
+          </div>
+          <div class="tw"><table><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Doctor</th></tr></thead><tbody id="ovPBody"><tr class="ldr"><td colspan="4"><div class="spin"></div></td></tr></tbody></table></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>👨‍⚕️</span><span class="gh-title">Doctors On Duty</span>
+            <div class="sb gho"><button class="mb" onclick="pg('doctors',null)">View All</button><button class="ab" onclick="td('ovDD')">▾</button><div class="sdrop" id="ovDD"><a onclick="openM('docM');cd()">➕ Add Doctor</a><a onclick="pg('doctors',null);cd()">👨‍⚕️ All Doctors</a></div></div>
+          </div>
+          <div class="tw"><table><thead><tr><th>Name</th><th>Spec.</th><th>Status</th></tr></thead><tbody id="ovDBody"><tr class="ldr"><td colspan="3"><div class="spin"></div></td></tr></tbody></table></div>
+        </div>
       </div>
     </div>
 
-    <div class="sidebar-section-label">Main</div>
-    <div class="nav-item active" onclick="showPage('dashboard', this)">
-      <span class="icon">📊</span><span class="label">Dashboard</span>
-    </div>
-
-    <div class="sidebar-section-label">People</div>
-    <div class="nav-item" onclick="showPage('patients', this)">
-      <span class="icon">👥</span><span class="label">Patients</span>
-    </div>
-    <div class="nav-item" onclick="showPage('doctors', this)">
-      <span class="icon">👨‍⚕️</span><span class="label">Doctors</span>
-    </div>
-
-    <div class="sidebar-section-label">Clinical</div>
-    <div class="nav-item" onclick="showPage('beds', this)">
-      <span class="icon">🛏️</span><span class="label">Beds & ICU</span>
-    </div>
-    <div class="nav-item" onclick="showPage('appointments', this)">
-      <span class="icon">📅</span><span class="label">Appointments</span>
-    </div>
-    <div class="nav-item" onclick="showPage('medicines', this)">
-      <span class="icon">💊</span><span class="label">Medicines</span>
-      <span class="badge-count" id="lowStockBadge" style="display:none">!</span>
-    </div>
-
-    <div class="sidebar-footer">
-      <div class="user-pill">
-        <div class="user-avatar" id="userAvatarInitial">A</div>
-        <div>
-          <div class="user-name" id="userNameDisplay">Admin</div>
-          <div class="user-role" id="userRoleDisplay">ADMIN</div>
+    <!-- PATIENTS PAGE -->
+    <div class="page" id="patientsPage">
+      <div class="sg" style="grid-template-columns:repeat(5,1fr)">
+        <div class="sc blue"><div class="sc-ic">👥</div><div class="sc-val" id="pTotal">—</div><div class="sc-lbl">Total</div></div>
+        <div class="sc red"><div class="sc-ic">🏥</div><div class="sc-val" id="pAdmit">—</div><div class="sc-lbl">Admitted</div></div>
+        <div class="sc pur"><div class="sc-ic">💊</div><div class="sc-val" id="pICU">—</div><div class="sc-lbl">ICU</div></div>
+        <div class="sc grn"><div class="sc-ic">🚶</div><div class="sc-val" id="pOPD">—</div><div class="sc-lbl">OPD</div></div>
+        <div class="sc amb"><div class="sc-ic">📋</div><div class="sc-val">7</div><div class="sc-lbl">Departments</div></div>
+      </div>
+      <div class="gc">
+        <div class="gh"><span>👥</span><span class="gh-title">Patient Management</span><span class="gh-sub" id="patCnt">Loading…</span>
+          <div class="sb pri"><button class="mb" onclick="openM('patM')">+ Register Patient</button><button class="ab" onclick="td('patAD')">▾</button><div class="sdrop" id="patAD"><a onclick="openM('patM');cd()">➕ New Patient</a><a onclick="expTbl('patTbl');cd()">📥 Export CSV</a><a onclick="loadPatients();cd()">🔄 Refresh</a></div></div>
         </div>
-        <button class="logout-btn" title="Sign out" onclick="handleLogout()">⏻</button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- MAIN AREA -->
-  <div class="main-area">
-    <div class="topbar">
-      <div>
-        <div class="topbar-title" id="topbarTitle">Dashboard</div>
-        <div class="topbar-subtitle" id="topbarSub">Live overview · <span id="nowTime"></span></div>
-      </div>
-
-      <div class="search-box">
-        <input type="text" placeholder="Search patients, doctors…" id="globalSearch">
-      </div>
-
-      <div class="topbar-icon" id="refreshTopbar" onclick="refreshCurrentPage()" title="Refresh">🔄</div>
-
-      <div class="topbar-icon" title="Live">
-        <span class="pulse"></span>
-      </div>
-
-      <!-- Split button in topbar -->
-      <div class="split-btn primary" style="flex-shrink:0">
-        <button class="main-btn" onclick="quickAdd()">+ Quick Add</button>
-        <button class="arrow-btn" onclick="toggleDropdown('quickAddDrop')">▾</button>
-        <div class="split-dropdown" id="quickAddDrop">
-          <a onclick="openModal('patientModal');closeAllDropdowns()">👥 New Patient</a>
-          <a onclick="openModal('doctorModal');closeAllDropdowns()">👨‍⚕️ New Doctor</a>
-          <a onclick="openModal('appointmentModal');closeAllDropdowns()">📅 New Appointment</a>
-          <div class="divider"></div>
-          <a onclick="refreshCurrentPage();closeAllDropdowns()">🔄 Refresh Data</a>
-        </div>
+        <div class="tw"><table id="patTbl"><thead><tr><th>Patient ID</th><th>Name</th><th>Age/Gender</th><th>Phone</th><th>Blood</th><th>Status</th><th>Doctor</th><th>Actions</th></tr></thead><tbody id="patBody"><tr class="ldr"><td colspan="8"><div class="spin"></div></td></tr></tbody></table></div>
       </div>
     </div>
 
-    <div class="pages-area">
+    <!-- DOCTORS PAGE -->
+    <div class="page" id="doctorsPage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc blue"><div class="sc-ic">👨‍⚕️</div><div class="sc-val" id="dTotal">—</div><div class="sc-lbl">Total Doctors</div></div>
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="dActive">—</div><div class="sc-lbl">On Duty</div></div>
+        <div class="sc amb"><div class="sc-ic">📞</div><div class="sc-val" id="dCall">—</div><div class="sc-lbl">On Call</div></div>
+        <div class="sc red"><div class="sc-ic">🔴</div><div class="sc-val" id="dOff">—</div><div class="sc-lbl">Off Duty</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📊</span><span class="gh-title">Status Distribution</span></div>
+          <div class="chart-wrap"><canvas id="docChart"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>🏥</span><span class="gh-title">Department Load</span></div>
+          <div class="chart-wrap"><canvas id="docDeptChart"></canvas></div>
+        </div>
+      </div>
+      <div class="gc">
+        <div class="gh"><span>👨‍⚕️</span><span class="gh-title">All Doctors</span><span class="gh-sub" id="docCnt">Loading…</span>
+          <div class="sb pri"><button class="mb" onclick="openM('docM')">+ Add Doctor</button><button class="ab" onclick="td('docAD')">▾</button><div class="sdrop" id="docAD"><a onclick="openM('docM');cd()">➕ New Doctor</a><a onclick="expTbl('docTbl');cd()">📥 Export CSV</a><a onclick="loadDoctors();cd()">🔄 Refresh</a></div></div>
+        </div>
+        <div class="tw"><table id="docTbl"><thead><tr><th>QR ID</th><th>Name</th><th>Specialization</th><th>Department</th><th>Shift</th><th>Rating</th><th>Patients</th><th>Status</th><th>Actions</th></tr></thead><tbody id="docBody"><tr class="ldr"><td colspan="9"><div class="spin"></div></td></tr></tbody></table></div>
+      </div>
+    </div>
 
-      <!-- ================================================
-           DASHBOARD PAGE
-      ================================================ -->
-      <div class="page active" id="dashboardPage">
-        <div class="stats-row" id="statsRow">
-          <div class="stat-card blue">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value" id="statPatients">—</div>
-            <div class="stat-label">Total Patients</div>
-            <div class="stat-delta up">↑ Live count</div>
+    <!-- BEDS PAGE -->
+    <div class="page" id="bedsPage">
+      <div class="sg" style="grid-template-columns:repeat(5,1fr)">
+        <div class="sc blue"><div class="sc-ic">🛏️</div><div class="sc-val" id="bTotal">—</div><div class="sc-lbl">Total Beds</div></div>
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="bFree">—</div><div class="sc-lbl">Available</div></div>
+        <div class="sc red"><div class="sc-ic">🔴</div><div class="sc-val" id="bOcc">—</div><div class="sc-lbl">Occupied</div></div>
+        <div class="sc amb"><div class="sc-ic">🧹</div><div class="sc-val" id="bClean">—</div><div class="sc-lbl">Cleaning</div></div>
+        <div class="sc pur"><div class="sc-ic">🏥</div><div class="sc-val" id="bICU">—</div><div class="sc-lbl">ICU Beds</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📊</span><span class="gh-title">Occupancy Chart</span></div>
+          <div class="chart-wrap"><canvas id="bedChartFull"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>🏥</span><span class="gh-title">ICU Status</span>
+            <div class="sb gho"><button class="mb" onclick="filterBeds('ICU')">ICU Only</button><button class="ab" onclick="td('icuD')">▾</button><div class="sdrop" id="icuD"><a onclick="filterBeds('all');cd()">📋 All Beds</a><a onclick="filterBeds('FREE');cd()">✅ Free Only</a><a onclick="filterBeds('OCCUPIED');cd()">🔴 Occupied Only</a><a onclick="filterBeds('CLEANING');cd()">🧹 Cleaning Only</a></div></div>
           </div>
-          <div class="stat-card green">
-            <div class="stat-icon">👨‍⚕️</div>
-            <div class="stat-value" id="statDoctors">—</div>
-            <div class="stat-label">Doctors</div>
+          <div class="bed-grid" id="icuGrid"></div>
+        </div>
+      </div>
+      <div class="gc">
+        <div class="gh"><span>🛏️</span><span class="gh-title">All Floors & Blocks</span>
+          <div class="sb gho"><button class="mb" onclick="filterBeds('all')">All</button><button class="ab" onclick="td('bedAD')">▾</button><div class="sdrop" id="bedAD"><a onclick="filterBeds('all');cd()">📋 All</a><a onclick="filterBeds('FREE');cd()">✅ Free</a><a onclick="filterBeds('OCCUPIED');cd()">🔴 Occupied</a><a onclick="filterBeds('CLEANING');cd()">🧹 Cleaning</a><div class="dv"></div><a onclick="loadBeds();cd()">🔄 Refresh</a></div></div>
+        </div>
+        <div id="bedFloors"></div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE PAGE -->
+    <div class="page" id="attendancePage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="attP">—</div><div class="sc-lbl">Present</div></div>
+        <div class="sc red"><div class="sc-ic">❌</div><div class="sc-val" id="attA">—</div><div class="sc-lbl">Absent</div></div>
+        <div class="sc amb"><div class="sc-ic">⏰</div><div class="sc-val" id="attL">—</div><div class="sc-lbl">Late</div></div>
+        <div class="sc blue"><div class="sc-ic">⏱️</div><div class="sc-val" id="attAvg">—</div><div class="sc-lbl">Avg Hours</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📷</span><span class="gh-title">QR Code Check-In</span>
+            <div class="sb suc"><button class="mb" onclick="startScan()">▶ Scan QR</button><button class="ab" onclick="td('qrD')">▾</button><div class="sdrop" id="qrD"><a onclick="startScan();cd()">📷 Scan QR</a><a onclick="">🔢 Manual Entry</a></div></div>
           </div>
-          <div class="stat-card green">
-            <div class="stat-icon">🛏️</div>
-            <div class="stat-value" id="statFreeBeds">—</div>
-            <div class="stat-label">Free Beds</div>
-          </div>
-          <div class="stat-card red">
-            <div class="stat-icon">🏥</div>
-            <div class="stat-value" id="statOccupied">—</div>
-            <div class="stat-label">Occupied</div>
-          </div>
-          <div class="stat-card amber">
-            <div class="stat-icon">📅</div>
-            <div class="stat-value" id="statAppt">—</div>
-            <div class="stat-label">Upcoming Apts</div>
-          </div>
-          <div class="stat-card purple">
-            <div class="stat-icon">💊</div>
-            <div class="stat-value" id="statLowStock">—</div>
-            <div class="stat-label">Low Stock Items</div>
+          <div class="gc-body">
+            <div class="qr-box" onclick="startScan()">
+              <div style="font-size:36px;margin-bottom:10px">📷</div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:4px">Tap to Scan QR Code</div>
+              <div style="font-size:11px;color:var(--sub)">Point camera at employee ID card</div>
+            </div>
+            <div style="text-align:center;margin:12px 0;font-size:11px;color:var(--dim)">— or enter ID manually —</div>
+            <div style="display:flex;gap:8px">
+              <input id="manualId" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:var(--rs);color:var(--txt);font-size:13px;outline:none;font-family:inherit" placeholder="Employee QR ID e.g. DOC-0042">
+              <div class="sb suc"><button class="mb" onclick="doCheckin()">Check In</button><button class="ab" onclick="td('ciD')">▾</button><div class="sdrop" id="ciD"><a onclick="doCheckin();cd()">✅ Check In</a><a onclick="doCheckout();cd()">⬆️ Check Out</a></div></div>
+            </div>
+            <div class="qr-out" id="qrOut"></div>
           </div>
         </div>
-
-        <div class="two-col">
-          <div class="glass-card">
-            <div class="card-header">
-              <span style="font-size:16px">👥</span>
-              <span class="card-header-title">Recent Patients</span>
-              <div class="split-btn ghost" style="flex-shrink:0">
-                <button class="main-btn" onclick="showPage('patients', document.querySelector('[onclick=\"showPage(\'patients\', this)\"]'))">View All</button>
-                <button class="arrow-btn" onclick="toggleDropdown('dashPatDrop')">▾</button>
-                <div class="split-dropdown" id="dashPatDrop">
-                  <a onclick="openModal('patientModal');closeAllDropdowns()">➕ Add Patient</a>
-                  <a onclick="exportTable('patientsTable');closeAllDropdowns()">📥 Export CSV</a>
-                  <a onclick="refreshPage('patients');closeAllDropdowns()">🔄 Refresh</a>
-                </div>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>ID</th><th>Name</th><th>Age</th><th>Status</th></tr></thead>
-                <tbody id="dashPatientsBody">
-                  <tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="gc">
+          <div class="gh"><span>🪪</span><span class="gh-title">Generate Employee QR</span>
+            <div class="sb gho"><button class="mb" onclick="genQR()">Generate</button><button class="ab" onclick="td('gqD')">▾</button><div class="sdrop" id="gqD"><a onclick="genQR();cd()">🪪 Generate</a><a onclick="printQR();cd()">🖨️ Print Card</a></div></div>
           </div>
-
-          <div class="glass-card">
-            <div class="card-header">
-              <span style="font-size:16px">👨‍⚕️</span>
-              <span class="card-header-title">Doctors on Record</span>
-              <div class="split-btn ghost" style="flex-shrink:0">
-                <button class="main-btn" onclick="showPage('doctors', document.querySelectorAll('.nav-item')[3])">View All</button>
-                <button class="arrow-btn" onclick="toggleDropdown('dashDocDrop')">▾</button>
-                <div class="split-dropdown" id="dashDocDrop">
-                  <a onclick="openModal('doctorModal');closeAllDropdowns()">➕ Add Doctor</a>
-                  <a onclick="refreshPage('doctors');closeAllDropdowns()">🔄 Refresh</a>
-                </div>
-              </div>
+          <div class="gc-body">
+            <div class="mrow" style="margin-bottom:12px">
+              <label>Select Staff Member</label>
+              <select id="qrStaffSel" style="width:100%;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:var(--rs);color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none"><option value="">Select staff…</option></select>
             </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Name</th><th>Specialization</th><th>Status</th></tr></thead>
-                <tbody id="dashDoctorsBody">
-                  <tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr>
-                </tbody>
-              </table>
+            <div class="sb suc" style="width:100%">
+              <button class="mb" style="flex:1" onclick="genQR()">🪪 Generate QR Code</button>
+              <button class="ab" onclick="td('gqD2')">▾</button>
+              <div class="sdrop" id="gqD2"><a onclick="genQR();cd()">🪪 Generate</a><a onclick="printQR();cd()">🖨️ Print</a></div>
             </div>
+            <div id="qrContainer" style="display:none;text-align:center;margin-top:14px;background:white;padding:10px;border-radius:10px;display:none"></div>
+            <div id="qrStaffName" style="text-align:center;margin-top:8px;font-size:12px;font-weight:600;display:none"></div>
           </div>
         </div>
       </div>
+      <div class="gc">
+        <div class="gh"><span>📋</span><span class="gh-title">Today's Attendance Log</span>
+          <div class="sb gho"><button class="mb" onclick="loadAttendance()">Refresh</button><button class="ab" onclick="td('attAD')">▾</button><div class="sdrop" id="attAD"><a onclick="expTbl('attTbl');cd()">📥 Export CSV</a><a onclick="loadAttendance();cd()">🔄 Refresh</a></div></div>
+        </div>
+        <div class="tw"><table id="attTbl"><thead><tr><th>Staff Name</th><th>QR ID</th><th>Department</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Method</th><th>Status</th></tr></thead><tbody id="attBody"><tr class="ldr"><td colspan="8"><div class="spin"></div></td></tr></tbody></table></div>
+      </div>
+    </div>
 
-      <!-- ================================================
-           PATIENTS PAGE
-      ================================================ -->
-      <div class="page" id="patientsPage">
-        <div class="glass-card">
-          <div class="card-header">
-            <span style="font-size:16px">👥</span>
-            <span class="card-header-title">Patient Management</span>
-            <span class="card-header-sub" id="patientCount">Loading…</span>
-            <div class="split-btn primary" style="flex-shrink:0">
-              <button class="main-btn" onclick="openModal('patientModal')">+ Register Patient</button>
-              <button class="arrow-btn" onclick="toggleDropdown('patientActDrop')">▾</button>
-              <div class="split-dropdown" id="patientActDrop">
-                <a onclick="openModal('patientModal');closeAllDropdowns()">➕ New Patient</a>
-                <a onclick="exportTable('patientsTable');closeAllDropdowns()">📥 Export CSV</a>
-                <a onclick="loadPatients();closeAllDropdowns()">🔄 Refresh</a>
-                <div class="divider"></div>
-                <a onclick="filterPatients('all');closeAllDropdowns()">📋 Show All</a>
-              </div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table id="patientsTable">
-              <thead>
-                <tr>
-                  <th>Patient ID</th><th>Name</th><th>Email</th>
-                  <th>Phone</th><th>Age</th><th>Gender</th><th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="patientsBody">
-                <tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>
-              </tbody>
-            </table>
-          </div>
+    <!-- APPOINTMENTS PAGE -->
+    <div class="page" id="apptsPage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc blue"><div class="sc-ic">📅</div><div class="sc-val" id="apTotal">—</div><div class="sc-lbl">Total</div></div>
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="apComp">—</div><div class="sc-lbl">Completed</div></div>
+        <div class="sc amb"><div class="sc-ic">🕒</div><div class="sc-val" id="apSched">—</div><div class="sc-lbl">Scheduled</div></div>
+        <div class="sc red"><div class="sc-ic">❌</div><div class="sc-val" id="apCanc">—</div><div class="sc-lbl">Cancelled</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📊</span><span class="gh-title">Status Distribution</span></div>
+          <div class="chart-wrap"><canvas id="apptChart"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>🏥</span><span class="gh-title">Type Breakdown</span></div>
+          <div class="chart-wrap"><canvas id="apptTypeChart"></canvas></div>
         </div>
       </div>
+      <div class="gc">
+        <div class="gh"><span>📅</span><span class="gh-title">All Appointments</span><span class="gh-sub" id="apptCnt">Loading…</span>
+          <div class="sb pri"><button class="mb" onclick="openM('apptM')">+ Book Appointment</button><button class="ab" onclick="td('apptAD')">▾</button><div class="sdrop" id="apptAD"><a onclick="openM('apptM');cd()">➕ Book</a><a onclick="expTbl('apptTbl');cd()">📥 Export</a><a onclick="loadAppts();cd()">🔄 Refresh</a></div></div>
+        </div>
+        <div class="tw"><table id="apptTbl"><thead><tr><th>Code</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Time</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="apptBody"><tr class="ldr"><td colspan="8"><div class="spin"></div></td></tr></tbody></table></div>
+      </div>
+    </div>
 
-      <!-- ================================================
-           DOCTORS PAGE
-      ================================================ -->
-      <div class="page" id="doctorsPage">
-        <div class="glass-card">
-          <div class="card-header">
-            <span style="font-size:16px">👨‍⚕️</span>
-            <span class="card-header-title">Doctor Management</span>
-            <span class="card-header-sub" id="doctorCount">Loading…</span>
-            <div class="split-btn primary" style="flex-shrink:0">
-              <button class="main-btn" onclick="openModal('doctorModal')">+ Add Doctor</button>
-              <button class="arrow-btn" onclick="toggleDropdown('doctorActDrop')">▾</button>
-              <div class="split-dropdown" id="doctorActDrop">
-                <a onclick="openModal('doctorModal');closeAllDropdowns()">➕ New Doctor</a>
-                <a onclick="exportTable('doctorsTable');closeAllDropdowns()">📥 Export CSV</a>
-                <a onclick="loadDoctors();closeAllDropdowns()">🔄 Refresh</a>
-              </div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table id="doctorsTable">
-              <thead>
-                <tr><th>Name</th><th>Email</th><th>Phone</th><th>Specialization</th><th>Status</th><th>Actions</th></tr>
-              </thead>
-              <tbody id="doctorsBody">
-                <tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr>
-              </tbody>
-            </table>
-          </div>
+    <!-- PHARMACY PAGE -->
+    <div class="page" id="pharmacyPage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc blue"><div class="sc-ic">💊</div><div class="sc-val" id="mTotal">—</div><div class="sc-lbl">Total Items</div></div>
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="mInStock">—</div><div class="sc-lbl">In Stock</div></div>
+        <div class="sc amb"><div class="sc-ic">⚠️</div><div class="sc-val" id="mLow">—</div><div class="sc-lbl">Low Stock</div></div>
+        <div class="sc red"><div class="sc-ic">⏱️</div><div class="sc-val" id="mExpiry">—</div><div class="sc-lbl">Expiring Soon</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📊</span><span class="gh-title">Stock Status</span></div>
+          <div class="chart-wrap"><canvas id="pharChart"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>📋</span><span class="gh-title">Category Breakdown</span></div>
+          <div class="chart-wrap"><canvas id="pharCatChart"></canvas></div>
         </div>
       </div>
-
-      <!-- ================================================
-           BEDS PAGE
-      ================================================ -->
-      <div class="page" id="bedsPage">
-        <div class="stats-row" style="grid-template-columns:repeat(4,1fr)">
-          <div class="stat-card blue"><div class="stat-icon">🛏️</div><div class="stat-value" id="bedTotal">—</div><div class="stat-label">Total Beds</div></div>
-          <div class="stat-card green"><div class="stat-icon">✅</div><div class="stat-value" id="bedFree">—</div><div class="stat-label">Available</div></div>
-          <div class="stat-card red"><div class="stat-icon">🔴</div><div class="stat-value" id="bedOcc">—</div><div class="stat-label">Occupied</div></div>
-          <div class="stat-card purple"><div class="stat-icon">🏥</div><div class="stat-value" id="bedICU">—</div><div class="stat-label">ICU</div></div>
+      <div class="gc">
+        <div class="gh"><span>💊</span><span class="gh-title">Medicine Inventory</span><span class="gh-sub" id="medCnt">Loading…</span>
+          <div class="sb pri"><button class="mb" onclick="openM('medM')">+ Add Medicine</button><button class="ab" onclick="td('medAD')">▾</button><div class="sdrop" id="medAD"><a onclick="openM('medM');cd()">➕ Add</a><a onclick="expTbl('medTbl');cd()">📥 Export</a><a onclick="filterMeds('low');cd()">⚠️ Low Stock Only</a><a onclick="loadMeds();cd()">🔄 Refresh</a></div></div>
         </div>
-        <div class="glass-card">
-          <div class="card-header">
-            <span style="font-size:16px">🛏️</span>
-            <span class="card-header-title">Bed & ICU Status</span>
-            <div class="split-btn ghost" style="flex-shrink:0">
-              <button class="main-btn" onclick="loadBeds()">Refresh</button>
-              <button class="arrow-btn" onclick="toggleDropdown('bedActDrop')">▾</button>
-              <div class="split-dropdown" id="bedActDrop">
-                <a onclick="filterBeds('all');closeAllDropdowns()">📋 Show All</a>
-                <a onclick="filterBeds('FREE');closeAllDropdowns()">✅ Free Only</a>
-                <a onclick="filterBeds('OCCUPIED');closeAllDropdowns()">🔴 Occupied Only</a>
-              </div>
-            </div>
-          </div>
-          <div class="bed-grid" id="bedGrid">
-            <div style="padding:32px;text-align:center;width:100%"><div class="spinner"></div></div>
-          </div>
+        <div class="tw"><table id="medTbl"><thead><tr><th>Medicine</th><th>Category</th><th>Stock</th><th>Level</th><th>Reorder</th><th>Expiry</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody id="medBody"><tr class="ldr"><td colspan="9"><div class="spin"></div></td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ORDERS PAGE -->
+    <div class="page" id="ordersPage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc blue"><div class="sc-ic">📦</div><div class="sc-val" id="orTotal">—</div><div class="sc-lbl">Total Orders</div></div>
+        <div class="sc amb"><div class="sc-ic">🕒</div><div class="sc-val" id="orPend">—</div><div class="sc-lbl">Pending</div></div>
+        <div class="sc pur"><div class="sc-ic">🚚</div><div class="sc-val" id="orDisp">—</div><div class="sc-lbl">Dispatched</div></div>
+        <div class="sc grn"><div class="sc-ic">✅</div><div class="sc-val" id="orDel">—</div><div class="sc-lbl">Delivered</div></div>
+      </div>
+      <div class="gc">
+        <div class="gh"><span>📦</span><span class="gh-title">Orders Management</span><span class="gh-sub" id="orderCnt">Loading…</span>
+          <div class="sb pri"><button class="mb" onclick="openM('orderM')">+ New Order</button><button class="ab" onclick="td('orderAD')">▾</button><div class="sdrop" id="orderAD"><a onclick="openM('orderM');cd()">➕ New Order</a><a onclick="expTbl('orderTbl');cd()">📥 Export</a><a onclick="loadOrders();cd()">🔄 Refresh</a></div></div>
+        </div>
+        <div class="tw"><table id="orderTbl"><thead><tr><th>Code</th><th>Type</th><th>Supplier</th><th>Amount</th><th>Payment</th><th>Status</th><th>Expected</th><th>Actions</th></tr></thead><tbody id="orderBody"><tr class="ldr"><td colspan="8"><div class="spin"></div></td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- FINANCE PAGE -->
+    <div class="page" id="financePage">
+      <div class="sg" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc grn"><div class="sc-ic">📈</div><div class="sc-val" id="finRev">—</div><div class="sc-lbl">Revenue</div><div class="sc-dl up">This month</div></div>
+        <div class="sc red"><div class="sc-ic">📉</div><div class="sc-val" id="finExp">—</div><div class="sc-lbl">Expense</div><div class="sc-dl nt">This month</div></div>
+        <div class="sc pur"><div class="sc-ic">💰</div><div class="sc-val" id="finNet">—</div><div class="sc-lbl">Net Profit</div><div class="sc-dl up">—</div></div>
+        <div class="sc blue"><div class="sc-ic">📊</div><div class="sc-val" id="finPct">—</div><div class="sc-lbl">Profit Margin</div><div class="sc-dl up">—</div></div>
+      </div>
+      <div class="g2">
+        <div class="gc">
+          <div class="gh"><span>📈</span><span class="gh-title">Revenue vs Expense Trend</span></div>
+          <div class="chart-wrap"><canvas id="finTrendChart"></canvas></div>
+        </div>
+        <div class="gc">
+          <div class="gh"><span>🍩</span><span class="gh-title">Revenue by Sector</span></div>
+          <div class="chart-wrap"><canvas id="finSectorChart"></canvas></div>
         </div>
       </div>
-
-      <!-- ================================================
-           APPOINTMENTS PAGE
-      ================================================ -->
-      <div class="page" id="appointmentsPage">
-        <div class="glass-card">
-          <div class="card-header">
-            <span style="font-size:16px">📅</span>
-            <span class="card-header-title">Appointments</span>
-            <span class="card-header-sub" id="appointmentCount">Loading…</span>
-            <div class="split-btn primary" style="flex-shrink:0">
-              <button class="main-btn" onclick="openModal('appointmentModal')">+ Book Appointment</button>
-              <button class="arrow-btn" onclick="toggleDropdown('apptActDrop')">▾</button>
-              <div class="split-dropdown" id="apptActDrop">
-                <a onclick="openModal('appointmentModal');closeAllDropdowns()">➕ New Appointment</a>
-                <a onclick="exportTable('appointmentsTable');closeAllDropdowns()">📥 Export CSV</a>
-                <a onclick="loadAppointments();closeAllDropdowns()">🔄 Refresh</a>
-              </div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table id="appointmentsTable">
-              <thead>
-                <tr><th>Patient</th><th>Doctor</th><th>Date</th><th>Status</th><th>Actions</th></tr>
-              </thead>
-              <tbody id="appointmentsBody">
-                <tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>
-              </tbody>
-            </table>
-          </div>
+      <div class="gc">
+        <div class="gh"><span>💹</span><span class="gh-title">Sector-wise Breakdown</span>
+          <div class="sb pri"><button class="mb" onclick="openM('txnM')">+ Add Transaction</button><button class="ab" onclick="td('finAD')">▾</button><div class="sdrop" id="finAD"><a onclick="openM('txnM');cd()">➕ Add Revenue/Expense</a><a onclick="cd()">📥 Export Report</a></div></div>
         </div>
+        <div class="tw"><table><thead><tr><th>Sector</th><th>Revenue</th><th>Expense</th><th>Net</th><th>Share</th></tr></thead><tbody id="finBody"><tr class="ldr"><td colspan="5"><div class="spin"></div></td></tr></tbody></table></div>
       </div>
+    </div>
 
-      <!-- ================================================
-           MEDICINES PAGE
-      ================================================ -->
-      <div class="page" id="medicinesPage">
-        <div class="glass-card">
-          <div class="card-header">
-            <span style="font-size:16px">💊</span>
-            <span class="card-header-title">Pharmacy & Medicine Stock</span>
-            <span class="card-header-sub" id="medicineCount">Loading…</span>
-            <div class="split-btn primary" style="flex-shrink:0">
-              <button class="main-btn" onclick="openModal('medicineModal')">+ Add Medicine</button>
-              <button class="arrow-btn" onclick="toggleDropdown('medActDrop')">▾</button>
-              <div class="split-dropdown" id="medActDrop">
-                <a onclick="openModal('medicineModal');closeAllDropdowns()">➕ Add Medicine</a>
-                <a onclick="exportTable('medicinesTable');closeAllDropdowns()">📥 Export CSV</a>
-                <a onclick="loadMedicines();closeAllDropdowns()">🔄 Refresh</a>
-                <div class="divider"></div>
-                <a onclick="filterMedicines('low');closeAllDropdowns()">⚠️ Low Stock Only</a>
-              </div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table id="medicinesTable">
-              <thead>
-                <tr><th>Medicine</th><th>Stock</th><th>Level</th><th>Status</th><th>Actions</th></tr>
-              </thead>
-              <tbody id="medicinesBody">
-                <tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+  </div><!-- /pages -->
+</div><!-- /main -->
+</div><!-- /app -->
 
-    </div><!-- /pages-area -->
-  </div><!-- /main-area -->
-</div><!-- /appShell -->
+<!-- NOTIFICATION PANEL -->
+<div class="notif-panel" id="np">
+  <div class="np-title">
+    <span>🔔 Notifications</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="sb gho"><button class="mb" onclick="markAllRead()" style="font-size:11px">Mark all read</button><button class="ab" onclick="td('npD')">▾</button><div class="sdrop" id="npD"><a onclick="markAllRead();cd()">✅ Mark All Read</a><a onclick="loadNotifs();cd()">🔄 Refresh</a></div></div>
+      <button onclick="toggleNotif()" style="background:none;border:none;cursor:pointer;color:var(--sub);font-size:18px;padding:2px">✕</button>
+    </div>
+  </div>
+  <div id="npBody"></div>
+</div>
 
-<!-- ============================================================
-     MODALS
-============================================================ -->
+<!-- TOAST CONTAINER -->
+<div id="tc"></div>
+
+<!-- ============ MODALS ============ -->
 
 <!-- Patient Modal -->
-<div class="modal-backdrop" id="patientModal">
-  <div class="modal-box">
-    <div class="modal-title">Register New Patient <button class="modal-close" onclick="closeModal('patientModal')">✕</button></div>
-    <div class="two-col">
-      <div class="modal-form-row"><label>First Name *</label><input id="pFirstName" placeholder="Rajesh"></div>
-      <div class="modal-form-row"><label>Last Name *</label><input id="pLastName" placeholder="Kumar"></div>
+<div class="mback" id="patM">
+  <div class="mbox">
+    <div class="mtitle">Register New Patient <button class="mclose" onclick="closeM('patM')">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>First Name *</label><input id="pfn" placeholder="Ravi"></div>
+      <div class="mrow"><label>Last Name *</label><input id="pln" placeholder="Kumar"></div>
     </div>
-    <div class="modal-form-row"><label>Email *</label><input id="pEmail" type="email" placeholder="patient@email.com"></div>
-    <div class="modal-form-row"><label>Phone *</label><input id="pPhone" placeholder="+91-98765-43210"></div>
-    <div class="two-col">
-      <div class="modal-form-row"><label>Age</label><input id="pAge" type="number" placeholder="35"></div>
-      <div class="modal-form-row"><label>Gender</label>
-        <select id="pGender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
-      </div>
+    <div class="g2">
+      <div class="mrow"><label>Phone *</label><input id="pph" placeholder="+91-98765-43210"></div>
+      <div class="mrow"><label>Email</label><input id="pem" type="email" placeholder="patient@email.com"></div>
     </div>
-    <div class="modal-actions">
-      <div class="split-btn ghost"><button class="main-btn" onclick="closeModal('patientModal')">Cancel</button><button class="arrow-btn" onclick="toggleDropdown('pCancelDrop')">▾</button><div class="split-dropdown" id="pCancelDrop"><a onclick="clearPatientForm();closeAllDropdowns()">🧹 Clear form</a><a onclick="closeModal('patientModal');closeAllDropdowns()">✕ Close</a></div></div>
-      <div class="split-btn primary"><button class="main-btn" onclick="savePatient()">Save Patient</button><button class="arrow-btn" onclick="toggleDropdown('pSaveDrop')">▾</button><div class="split-dropdown" id="pSaveDrop"><a onclick="savePatient(true);closeAllDropdowns()">💾 Save &amp; Add Another</a><a onclick="savePatient();closeAllDropdowns()">💾 Save &amp; Close</a></div></div>
+    <div class="g2">
+      <div class="mrow"><label>Age</label><input id="page_" type="number" placeholder="35"></div>
+      <div class="mrow"><label>Gender</label><select id="pgen"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Blood Group</label><select id="pblood"><option value="">Select</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
+      <div class="mrow"><label>Status</label><select id="padm"><option value="OPD">OPD</option><option value="ADMITTED">Admitted</option><option value="ICU">ICU</option></select></div>
+    </div>
+    <div class="mrow"><label>Medical History</label><textarea id="phist" placeholder="Known conditions, past surgeries…"></textarea></div>
+    <div class="mrow"><label>Allergies</label><input id="pallerg" placeholder="e.g. Penicillin"></div>
+    <div class="g2">
+      <div class="mrow"><label>Emergency Contact Name</label><input id="pecn" placeholder="Contact person"></div>
+      <div class="mrow"><label>Emergency Contact Phone</label><input id="pecph" placeholder="+91-XXXXX-XXXXX"></div>
+    </div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('patM')">Cancel</button><button class="ab" onclick="td('pCanD')">▾</button><div class="sdrop" id="pCanD"><a onclick="clearPat();cd()">🧹 Clear Form</a><a onclick="closeM('patM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="savePat()">Save Patient</button><button class="ab" onclick="td('pSavD')">▾</button><div class="sdrop" id="pSavD"><a onclick="savePat(true);cd()">💾 Save & Add Another</a><a onclick="savePat();cd()">💾 Save & Close</a></div></div>
     </div>
   </div>
 </div>
 
 <!-- Doctor Modal -->
-<div class="modal-backdrop" id="doctorModal">
-  <div class="modal-box">
-    <div class="modal-title">Add New Doctor <button class="modal-close" onclick="closeModal('doctorModal')">✕</button></div>
-    <div class="two-col">
-      <div class="modal-form-row"><label>First Name *</label><input id="dFirstName" placeholder="Kavya"></div>
-      <div class="modal-form-row"><label>Last Name *</label><input id="dLastName" placeholder="Patel"></div>
+<div class="mback" id="docM">
+  <div class="mbox">
+    <div class="mtitle">Add New Doctor <button class="mclose" onclick="closeM('docM')">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>First Name *</label><input id="dfn" placeholder="Kavya"></div>
+      <div class="mrow"><label>Last Name *</label><input id="dln" placeholder="Patel"></div>
     </div>
-    <div class="modal-form-row"><label>Email *</label><input id="dEmail" type="email" placeholder="doctor@medix.com"></div>
-    <div class="two-col">
-      <div class="modal-form-row"><label>Phone</label><input id="dPhone" placeholder="+91-98001-23456"></div>
-      <div class="modal-form-row"><label>Specialization</label><input id="dSpec" placeholder="Cardiology"></div>
+    <div class="mrow"><label>Email *</label><input id="dem" type="email" placeholder="doctor@medix.com"></div>
+    <div class="g2">
+      <div class="mrow"><label>Phone</label><input id="dph" placeholder="+91-98001-23456"></div>
+      <div class="mrow"><label>Specialization</label><input id="dspec" placeholder="Cardiology"></div>
     </div>
-    <div class="modal-actions">
-      <div class="split-btn ghost"><button class="main-btn" onclick="closeModal('doctorModal')">Cancel</button><button class="arrow-btn" onclick="toggleDropdown('dCancelDrop')">▾</button><div class="split-dropdown" id="dCancelDrop"><a onclick="closeModal('doctorModal');closeAllDropdowns()">✕ Close</a></div></div>
-      <div class="split-btn primary"><button class="main-btn" onclick="saveDoctor()">Save Doctor</button><button class="arrow-btn" onclick="toggleDropdown('dSaveDrop')">▾</button><div class="split-dropdown" id="dSaveDrop"><a onclick="saveDoctor(true);closeAllDropdowns()">💾 Save &amp; Add Another</a><a onclick="saveDoctor();closeAllDropdowns()">💾 Save &amp; Close</a></div></div>
+    <div class="g2">
+      <div class="mrow"><label>Qualifications</label><input id="dqual" placeholder="MBBS, MD"></div>
+      <div class="mrow"><label>Experience (yrs)</label><input id="dexp" type="number" placeholder="10"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Shift</label><select id="dshift"><option value="MORNING">Morning</option><option value="AFTERNOON">Afternoon</option><option value="NIGHT">Night</option><option value="ROTATING">Rotating</option></select></div>
+      <div class="mrow"><label>Department</label><select id="ddept"><option value="">Select…</option></select></div>
+    </div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('docM')">Cancel</button><button class="ab" onclick="td('dCanD')">▾</button><div class="sdrop" id="dCanD"><a onclick="closeM('docM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="saveDoc()">Save Doctor</button><button class="ab" onclick="td('dSavD')">▾</button><div class="sdrop" id="dSavD"><a onclick="saveDoc(true);cd()">💾 Save & Add Another</a><a onclick="saveDoc();cd()">💾 Save & Close</a></div></div>
     </div>
   </div>
 </div>
 
 <!-- Appointment Modal -->
-<div class="modal-backdrop" id="appointmentModal">
-  <div class="modal-box">
-    <div class="modal-title">Book Appointment <button class="modal-close" onclick="closeModal('appointmentModal')">✕</button></div>
-    <div class="modal-form-row"><label>Patient ID</label><input id="aptPatientId" placeholder="1" type="number"></div>
-    <div class="modal-form-row"><label>Doctor ID</label><input id="aptDoctorId" placeholder="1" type="number"></div>
-    <div class="modal-form-row"><label>Date</label><input id="aptDate" type="date"></div>
-    <div class="modal-form-row"><label>Status</label>
-      <select id="aptStatus"><option value="SCHEDULED">Scheduled</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option></select>
+<div class="mback" id="apptM">
+  <div class="mbox">
+    <div class="mtitle">Book Appointment <button class="mclose" onclick="closeM('apptM')">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>Patient ID (DB)</label><input id="apPat" type="number" placeholder="1"></div>
+      <div class="mrow"><label>Doctor ID (DB)</label><input id="apDoc" type="number" placeholder="1"></div>
     </div>
-    <div class="modal-actions">
-      <div class="split-btn ghost"><button class="main-btn" onclick="closeModal('appointmentModal')">Cancel</button><button class="arrow-btn" onclick="toggleDropdown('aCancelDrop')">▾</button><div class="split-dropdown" id="aCancelDrop"><a onclick="closeModal('appointmentModal');closeAllDropdowns()">✕ Close</a></div></div>
-      <div class="split-btn primary"><button class="main-btn" onclick="saveAppointment()">Book Now</button><button class="arrow-btn" onclick="toggleDropdown('aSaveDrop')">▾</button><div class="split-dropdown" id="aSaveDrop"><a onclick="saveAppointment();closeAllDropdowns()">✅ Confirm &amp; Close</a></div></div>
+    <div class="g2">
+      <div class="mrow"><label>Date *</label><input id="apDate" type="date"></div>
+      <div class="mrow"><label>Time</label><input id="apTime" type="time"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Type</label><select id="apType"><option value="OPD">OPD</option><option value="SURGERY">Surgery</option><option value="POST_OP">Post-Op</option><option value="ICU_REVIEW">ICU Review</option></select></div>
+      <div class="mrow"><label>Status</label><select id="apStat"><option value="SCHEDULED">Scheduled</option><option value="COMPLETED">Completed</option><option value="CANCELLED">Cancelled</option></select></div>
+    </div>
+    <div class="mrow"><label>Reason</label><input id="apReason" placeholder="Reason for visit"></div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('apptM')">Cancel</button><button class="ab" onclick="td('apCanD')">▾</button><div class="sdrop" id="apCanD"><a onclick="closeM('apptM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="saveAppt()">Book Now</button><button class="ab" onclick="td('apSavD')">▾</button><div class="sdrop" id="apSavD"><a onclick="saveAppt();cd()">✅ Confirm & Close</a></div></div>
     </div>
   </div>
 </div>
 
 <!-- Medicine Modal -->
-<div class="modal-backdrop" id="medicineModal">
-  <div class="modal-box">
-    <div class="modal-title">Add Medicine Stock <button class="modal-close" onclick="closeModal('medicineModal')">✕</button></div>
-    <div class="modal-form-row"><label>Medicine Name *</label><input id="mName" placeholder="Paracetamol 500mg"></div>
-    <div class="two-col">
-      <div class="modal-form-row"><label>Quantity</label><input id="mQty" type="number" placeholder="500"></div>
-      <div class="modal-form-row"><label>Unit Price (₹)</label><input id="mPrice" type="number" step="0.01" placeholder="5.00"></div>
+<div class="mback" id="medM">
+  <div class="mbox">
+    <div class="mtitle">Add Medicine Stock <button class="mclose" onclick="closeM('medM')">✕</button></div>
+    <div class="mrow"><label>Medicine Name *</label><input id="mname" placeholder="Paracetamol 500mg"></div>
+    <div class="g2">
+      <div class="mrow"><label>Generic Name</label><input id="mgname" placeholder="Acetaminophen"></div>
+      <div class="mrow"><label>Category</label><input id="mcat" placeholder="Analgesic"></div>
     </div>
-    <div class="modal-form-row"><label>Expiry Date</label><input id="mExpiry" type="date"></div>
-    <div class="modal-actions">
-      <div class="split-btn ghost"><button class="main-btn" onclick="closeModal('medicineModal')">Cancel</button><button class="arrow-btn" onclick="toggleDropdown('mCancelDrop')">▾</button><div class="split-dropdown" id="mCancelDrop"><a onclick="closeModal('medicineModal');closeAllDropdowns()">✕ Close</a></div></div>
-      <div class="split-btn primary"><button class="main-btn" onclick="saveMedicine()">Add Stock</button><button class="arrow-btn" onclick="toggleDropdown('mSaveDrop')">▾</button><div class="split-dropdown" id="mSaveDrop"><a onclick="saveMedicine(true);closeAllDropdowns()">💾 Save &amp; Add Another</a><a onclick="saveMedicine();closeAllDropdowns()">💾 Save &amp; Close</a></div></div>
+    <div class="g2">
+      <div class="mrow"><label>Strength</label><input id="mstr" placeholder="500mg"></div>
+      <div class="mrow"><label>Unit</label><input id="munit" placeholder="tablets"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Qty in Stock</label><input id="mqty" type="number" placeholder="500"></div>
+      <div class="mrow"><label>Reorder Level</label><input id="mreorder" type="number" placeholder="100"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Unit Price (₹)</label><input id="mprice" type="number" step="0.01" placeholder="5.00"></div>
+      <div class="mrow"><label>Expiry Date</label><input id="mexpiry" type="date"></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Manufacturer</label><input id="mmfr" placeholder="Cipla Ltd"></div>
+      <div class="mrow"><label>Batch Number</label><input id="mbatch" placeholder="B2024001"></div>
+    </div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('medM')">Cancel</button><button class="ab" onclick="td('mCanD')">▾</button><div class="sdrop" id="mCanD"><a onclick="closeM('medM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="saveMed()">Add Stock</button><button class="ab" onclick="td('mSavD')">▾</button><div class="sdrop" id="mSavD"><a onclick="saveMed(true);cd()">💾 Save & Add Another</a><a onclick="saveMed();cd()">💾 Save & Close</a></div></div>
     </div>
   </div>
 </div>
 
-<!-- Toast Container -->
-<div id="toastContainer"></div>
+<!-- Order Modal -->
+<div class="mback" id="orderM">
+  <div class="mbox">
+    <div class="mtitle">Create New Order <button class="mclose" onclick="closeM('orderM')">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>Order Type</label><select id="otype"><option value="MEDICINE">Medicine</option><option value="OXYGEN">Oxygen Cylinders</option><option value="EQUIPMENT">Equipment</option></select></div>
+      <div class="mrow"><label>Supplier ID</label><input id="osup" type="number" placeholder="1"></div>
+    </div>
+    <div class="mrow"><label>Item Description</label><input id="oitems" placeholder="e.g. Amoxicillin 250mg x 500 units"></div>
+    <div class="g2">
+      <div class="mrow"><label>Total Amount (₹)</label><input id="oamt" type="number" placeholder="6000"></div>
+      <div class="mrow"><label>Expected Delivery</label><input id="odel" type="date"></div>
+    </div>
+    <div class="mrow"><label>Notes</label><input id="onotes" placeholder="Special instructions…"></div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('orderM')">Cancel</button><button class="ab" onclick="td('oCanD')">▾</button><div class="sdrop" id="oCanD"><a onclick="closeM('orderM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="saveOrder()">Place Order</button><button class="ab" onclick="td('oSavD')">▾</button><div class="sdrop" id="oSavD"><a onclick="saveOrder();cd()">✅ Place & Close</a></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction Modal -->
+<div class="mback" id="txnM">
+  <div class="mbox">
+    <div class="mtitle">Add Financial Transaction <button class="mclose" onclick="closeM('txnM')">✕</button></div>
+    <div class="g2">
+      <div class="mrow"><label>Type</label><select id="txtype"><option value="REVENUE">Revenue</option><option value="EXPENSE">Expense</option></select></div>
+      <div class="mrow"><label>Sector</label><select id="txsector"><option value="OPD">OPD</option><option value="SURGERY">Surgery</option><option value="PHARMACY">Pharmacy</option><option value="LAB">Lab</option><option value="ICU">ICU</option><option value="OPERATIONS">Operations</option></select></div>
+    </div>
+    <div class="g2">
+      <div class="mrow"><label>Amount (₹) *</label><input id="txamt" type="number" placeholder="5000"></div>
+      <div class="mrow"><label>Category</label><input id="txcat" placeholder="Consultation Fee"></div>
+    </div>
+    <div class="mrow"><label>Description</label><input id="txdesc" placeholder="Transaction details…"></div>
+    <div class="mact">
+      <div class="sb gho"><button class="mb" onclick="closeM('txnM')">Cancel</button><button class="ab" onclick="td('txCanD')">▾</button><div class="sdrop" id="txCanD"><a onclick="closeM('txnM');cd()">✕ Close</a></div></div>
+      <div class="sb pri"><button class="mb" onclick="saveTxn()">Save</button><button class="ab" onclick="td('txSavD')">▾</button><div class="sdrop" id="txSavD"><a onclick="saveTxn();cd()">💾 Save & Close</a></div></div>
+    </div>
+  </div>
+</div>
 
 <script>
-/* ============================================================
-   CONFIG — update this to your real Render API URL
-============================================================ */
+// ══════════════════════════════════════════
+// CONFIG — update this to your Render API URL
+// ══════════════════════════════════════════
 const API = 'https://medix-api-5goh.onrender.com';
+let token = localStorage.getItem('mx_token') || null;
+let user  = JSON.parse(localStorage.getItem('mx_user') || 'null');
+let capAns = 0, curPage = 'dash', allBeds = [], allMeds = [], charts = {};
 
-/* ============================================================
-   STATE
-============================================================ */
-let token  = localStorage.getItem('medix_token')  || null;
-let user   = JSON.parse(localStorage.getItem('medix_user') || 'null');
-let currentPage = 'dashboard';
-let captchaAnswer = 0;
-
-/* ============================================================
-   BOOT
-============================================================ */
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  genCaptcha();
-  document.getElementById('captchaRefresh').addEventListener('click', genCaptcha);
-  updateClock();
-  setInterval(updateClock, 1000);
-
-  // Enter key on login
-  ['loginEmail','loginPass','captchaAnswer'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
-  });
-
-  // Close dropdowns on outside click
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.split-btn') && !e.target.closest('.split-dropdown')) {
-      closeAllDropdowns();
-    }
-  });
-
-  // If already logged in, skip login screen
-  if (token && user) {
-    showApp();
-  }
+  genCap();
+  document.getElementById('capRef').onclick = genCap;
+  setInterval(() => { const e = document.getElementById('clk'); if(e) e.textContent = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }, 1000);
+  ['lemail','lpass','capA'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
+  document.addEventListener('click', e => { if(!e.target.closest('.sb') && !e.target.closest('.sdrop')) cd(); });
+  document.addEventListener('click', e => { if(e.target.classList.contains('mback')) e.target.classList.remove('on'); });
+  if(token && user) showApp();
 });
 
-function updateClock() {
-  const el = document.getElementById('nowTime');
-  if (el) el.textContent = new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+// ══════════════════════════════════════════
+// CAPTCHA
+// ══════════════════════════════════════════
+function genCap() {
+  const ops=['+','-','×'], op=ops[Math.floor(Math.random()*3)];
+  const a=Math.floor(Math.random()*15)+1, b=Math.floor(Math.random()*12)+1;
+  capAns = op==='+'?a+b:op==='-'?a-b:a*b;
+  document.getElementById('capQ').textContent=`${a} ${op} ${b} = ?`;
+  document.getElementById('capA').value='';
+  document.getElementById('capErr').style.display='none';
 }
 
-/* ============================================================
-   CAPTCHA
-============================================================ */
-function genCaptcha() {
-  const ops = ['+', '-', '×'];
-  const op  = ops[Math.floor(Math.random() * ops.length)];
-  const a   = Math.floor(Math.random() * 15) + 1;
-  const b   = Math.floor(Math.random() * 10) + 1;
-
-  let result;
-  if      (op === '+') result = a + b;
-  else if (op === '-') result = a - b;
-  else                 result = a * b;
-
-  captchaAnswer = result;
-  document.getElementById('captchaQuestion').textContent = `${a} ${op} ${b} = ?`;
-  document.getElementById('captchaAnswer').value = '';
-  document.getElementById('captchaError').style.display = 'none';
-}
-
-/* ============================================================
-   LOGIN
-============================================================ */
-async function handleLogin() {
-  const email    = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPass').value;
-  const answer   = parseInt(document.getElementById('captchaAnswer').value, 10);
-  const errEl    = document.getElementById('loginError');
-  const btn      = document.getElementById('loginBtn');
-
-  errEl.style.display = 'none';
-
-  // CAPTCHA check
-  if (isNaN(answer) || answer !== captchaAnswer) {
-    document.getElementById('captchaError').style.display = 'block';
-    genCaptcha();
-    return;
-  }
-
-  if (!email || !password) {
-    errEl.textContent = 'Please enter email and password.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
-
+// ══════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════
+async function doLogin() {
+  const email=document.getElementById('lemail').value.trim();
+  const pass=document.getElementById('lpass').value;
+  const ans=parseInt(document.getElementById('capA').value);
+  const errEl=document.getElementById('lerr'), btn=document.getElementById('lbtn');
+  errEl.style.display='none';
+  if(isNaN(ans)||ans!==capAns){document.getElementById('capErr').style.display='block';genCap();return;}
+  if(!email||!pass){errEl.textContent='Email and password required';errEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Signing in…';
   try {
-    const res  = await fetch(`${API}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || 'Login failed');
-
-    token = data.token;
-    user  = data.user;
-    localStorage.setItem('medix_token', token);
-    localStorage.setItem('medix_user', JSON.stringify(user));
-
+    const res=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const d=await res.json();
+    if(!res.ok) throw new Error(d.error||'Login failed');
+    token=d.token;user=d.user;
+    localStorage.setItem('mx_token',token);localStorage.setItem('mx_user',JSON.stringify(user));
     showApp();
-  } catch (err) {
-    errEl.textContent = err.message;
-    errEl.style.display = 'block';
-    genCaptcha();
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Sign in to MediX';
-  }
+  } catch(e){errEl.textContent=e.message;errEl.style.display='block';genCap();}
+  finally{btn.disabled=false;btn.textContent='Sign in to MediX';}
 }
 
 function showApp() {
-  document.getElementById('loginScreen').style.display = 'none';
-  const shell = document.getElementById('appShell');
-  shell.classList.add('visible');
-
-  // Set user display
-  if (user) {
-    document.getElementById('userNameDisplay').textContent    = user.username || user.email.split('@')[0];
-    document.getElementById('userRoleDisplay').textContent    = user.role || 'ADMIN';
-    document.getElementById('userAvatarInitial').textContent  = (user.email || 'A')[0].toUpperCase();
+  document.getElementById('ls').style.display='none';
+  document.getElementById('app').classList.add('show');
+  if(user){
+    document.getElementById('uname').textContent=user.username||user.email.split('@')[0];
+    document.getElementById('urole').textContent=user.role||'ADMIN';
+    document.getElementById('uav').textContent=(user.email||'A')[0].toUpperCase();
   }
-
-  loadDashboard();
+  loadDash();loadDepts();
 }
 
-function handleLogout() {
-  token = null; user = null;
-  localStorage.removeItem('medix_token');
-  localStorage.removeItem('medix_user');
-  document.getElementById('appShell').classList.remove('visible');
-  document.getElementById('loginScreen').style.display = 'flex';
-  genCaptcha();
-  showToast('Signed out successfully', 'info');
+function doLogout() {
+  token=null;user=null;
+  localStorage.removeItem('mx_token');localStorage.removeItem('mx_user');
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('ls').style.display='flex';
+  genCap();toast('Signed out','i');
 }
 
-/* ============================================================
-   API HELPER
-============================================================ */
-async function api(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...opts,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...opts.headers
-    }
-  });
-
-  if (res.status === 401) {
-    handleLogout();
-    throw new Error('Session expired — please sign in again');
-  }
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
-  return data;
+// ══════════════════════════════════════════
+// API HELPER
+// ══════════════════════════════════════════
+async function call(path,opts={}) {
+  const res=await fetch(`${API}${path}`,{...opts,headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`,...opts.headers}});
+  if(res.status===401){doLogout();throw new Error('Session expired');}
+  const d=await res.json();
+  if(!res.ok) throw new Error(d.error||'Request failed');
+  return d;
 }
 
-/* ============================================================
-   NAVIGATION
-============================================================ */
-function showPage(name, el) {
-  // Update nav
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  if (el) el.classList.add('active');
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+function pg(name,el) {
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
+  if(el) el.classList.add('on');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById(name+'Page').classList.add('on');
+  curPage=name;
+  const titles={dash:'Overview Dashboard',patients:'Patient Management',doctors:'Doctors & Staff',beds:'Beds & ICU',attendance:'Attendance & QR',appts:'Appointments',pharmacy:'Pharmacy & Stock',orders:'Orders Management',finance:'Revenue & Finance'};
+  document.getElementById('tbtitle').textContent=titles[name]||name;
+  const loaders={dash:loadDash,patients:loadPatients,doctors:loadDoctors,beds:loadBeds,attendance:loadAttendance,appts:loadAppts,pharmacy:loadMeds,orders:loadOrders,finance:loadFinance};
+  if(loaders[name]) loaders[name]();
+}
+function refresh(){const loaders={dash:loadDash,patients:loadPatients,doctors:loadDoctors,beds:loadBeds,attendance:loadAttendance,appts:loadAppts,pharmacy:loadMeds,orders:loadOrders,finance:loadFinance};if(loaders[curPage])loaders[curPage]();}
 
-  // Update pages
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + 'Page').classList.add('active');
-
-  currentPage = name;
-
-  const titles = {
-    dashboard: 'Dashboard', patients: 'Patient Management',
-    doctors: 'Doctor Management', beds: 'Beds & ICU',
-    appointments: 'Appointments', medicines: 'Pharmacy & Medicines'
-  };
-  document.getElementById('topbarTitle').textContent = titles[name] || name;
-
-  // Load data
-  const loaders = {
-    dashboard: loadDashboard, patients: loadPatients,
-    doctors: loadDoctors, beds: loadBeds,
-    appointments: loadAppointments, medicines: loadMedicines
-  };
-  if (loaders[name]) loaders[name]();
+// ══════════════════════════════════════════
+// CHART HELPER
+// ══════════════════════════════════════════
+const CC='rgba(255,255,255,.55)',GC='rgba(255,255,255,.06)';
+function mkChart(id,type,labels,datasets,opts={}) {
+  if(charts[id]) charts[id].destroy();
+  const ctx=document.getElementById(id).getContext('2d');
+  charts[id]=new Chart(ctx,{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{labels:{color:CC,font:{size:11}}},tooltip:{backgroundColor:'rgba(8,16,32,.92)',titleColor:'#dde6f5',bodyColor:'#6b7f9a',borderColor:'rgba(255,255,255,.12)',borderWidth:1}},scales:type==='doughnut'||type==='pie'?{}:{x:{ticks:{color:CC,font:{size:10}},grid:{color:GC}},y:{ticks:{color:CC,font:{size:10}},grid:{color:GC}}},...opts}});
 }
 
-function refreshCurrentPage() { showPage(currentPage, null); }
-function refreshPage(name)    { showPage(name, null); }
-
-/* ============================================================
-   DASHBOARD
-============================================================ */
-async function loadDashboard() {
+// ══════════════════════════════════════════
+// OVERVIEW
+// ══════════════════════════════════════════
+async function loadDash() {
   try {
-    const [ov, pts, docs] = await Promise.all([
-      api('/api/v1/overview'),
-      api('/api/v1/patients'),
-      api('/api/v1/doctors')
-    ]);
-
-    const o = ov.data;
-    document.getElementById('statPatients').textContent  = o.total_patients || 0;
-    document.getElementById('statDoctors').textContent   = o.total_doctors  || 0;
-    document.getElementById('statFreeBeds').textContent  = o.free_beds      || 0;
-    document.getElementById('statOccupied').textContent  = o.occupied_beds  || 0;
-    document.getElementById('statAppt').textContent      = o.upcoming_appointments || 0;
-    document.getElementById('statLowStock').textContent  = o.low_stock_medicines || 0;
-
-    if (parseInt(o.low_stock_medicines) > 0) {
-      const b = document.getElementById('lowStockBadge');
-      b.textContent = o.low_stock_medicines;
-      b.style.display = 'flex';
+    const [ov,pts,docs,trend]=await Promise.all([call('/api/v1/overview'),call('/api/v1/patients'),call('/api/v1/doctors'),call('/api/v1/finance/trend')]);
+    const o=ov.data;
+    document.getElementById('ov1').textContent=o.total_patients||0;document.getElementById('ov1s').textContent=`${o.in_patients||0} admitted`;
+    document.getElementById('ov2').textContent=o.in_patients||0;document.getElementById('ov2s').textContent=`${o.icu_patients||0} in ICU`;
+    document.getElementById('ov3').textContent=o.icu_patients||0;document.getElementById('ov3s').textContent=`${o.free_icu||0} ICU free`;
+    document.getElementById('ov4').textContent=o.doctors_on_duty||0;document.getElementById('ov4s').textContent=`of ${o.total_doctors||0} total`;
+    document.getElementById('ov5').textContent=o.free_beds||0;document.getElementById('ov5s').textContent=`${o.occupied_beds||0} occupied`;
+    document.getElementById('ov6').textContent=o.today_appointments||0;
+    document.getElementById('ov7').textContent=o.low_stock||0;
+    document.getElementById('ov8').textContent=`₹${fmt(o.monthly_revenue||0)}`;
+    document.getElementById('nBadge').textContent=o.unread_notifications||0;
+    if(parseInt(o.low_stock)>0){const b=document.getElementById('lowBadge');b.textContent=o.low_stock;b.style.display='flex';}
+    if(trend.data&&trend.data.length){
+      const months=trend.data.map(r=>new Date(r.month).toLocaleString('en',{month:'short'}));
+      mkChart('ovRevChart','line',months,[
+        {label:'Revenue',data:trend.data.map(r=>r.revenue),borderColor:'#22d48b',backgroundColor:'rgba(34,212,139,.1)',tension:.4,fill:true},
+        {label:'Expense',data:trend.data.map(r=>r.expense),borderColor:'#f05252',backgroundColor:'rgba(240,82,82,.1)',tension:.4,fill:true}
+      ]);
     }
-
-    // Recent patients (last 6)
-    const pRows = pts.data.slice(0, 6).map(p => `
-      <tr>
-        <td><span class="badge blue">${p.patient_id_number}</span></td>
-        <td>${p.first_name} ${p.last_name}</td>
-        <td>${p.age || '—'}</td>
-        <td><span class="badge green">Active</span></td>
-      </tr>
-    `).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-sub);padding:20px">No patients yet</td></tr>';
-    document.getElementById('dashPatientsBody').innerHTML = pRows;
-
-    // Doctors (first 6)
-    const dRows = docs.data.slice(0, 6).map(d => `
-      <tr>
-        <td>${d.first_name} ${d.last_name}</td>
-        <td>${d.specialization || '—'}</td>
-        <td><span class="badge green">Active</span></td>
-      </tr>
-    `).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--text-sub);padding:20px">No doctors yet</td></tr>';
-    document.getElementById('dashDoctorsBody').innerHTML = dRows;
-
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
+    mkChart('ovBedChart','doughnut',['Free','Occupied','Cleaning'],[{data:[o.free_beds||0,o.occupied_beds||0,o.cleaning_beds||0],backgroundColor:['rgba(34,212,139,.8)','rgba(240,82,82,.8)','rgba(245,166,35,.8)'],borderWidth:0}]);
+    document.getElementById('ovPBody').innerHTML=pts.data.slice(0,6).map(p=>`<tr><td><span class="b blue">${p.patient_id_number}</span></td><td><strong>${p.first_name} ${p.last_name}</strong></td><td><span class="b ${adm(p.admission_status)}">${p.admission_status}</span></td><td>${p.doctor_name||'—'}</td></tr>`).join('')||eRow(4,'No patients');
+    document.getElementById('ovDBody').innerHTML=docs.data.filter(d=>d.availability_status==='ACTIVE').slice(0,6).map(d=>`<tr><td><strong>${d.first_name} ${d.last_name}</strong></td><td>${d.specialization||'—'}</td><td><span class="b grn">On Duty</span></td></tr>`).join('')||eRow(3,'No doctors on duty');
+  } catch(e){toast(e.message,'e');}
 }
 
-/* ============================================================
-   PATIENTS
-============================================================ */
+// ══════════════════════════════════════════
+// PATIENTS
+// ══════════════════════════════════════════
 async function loadPatients() {
-  document.getElementById('patientsBody').innerHTML = '<tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr>';
+  document.getElementById('patBody').innerHTML=lRow(8);
   try {
-    const data = await api('/api/v1/patients');
-    document.getElementById('patientCount').textContent = `${data.data.length} records`;
-    document.getElementById('patientsBody').innerHTML = data.data.length ? data.data.map(p => `
-      <tr>
-        <td><span class="badge blue">${p.patient_id_number}</span></td>
-        <td><strong>${p.first_name} ${p.last_name}</strong></td>
-        <td>${p.email}</td>
-        <td>${p.phone}</td>
-        <td>${p.age || '—'}</td>
-        <td>${p.gender || '—'}</td>
-        <td>
-          <div class="split-btn ghost">
-            <button class="main-btn" onclick="viewPatient(${p.id})">View</button>
-            <button class="arrow-btn" onclick="toggleDropdown('pat_${p.id}')">▾</button>
-            <div class="split-dropdown" id="pat_${p.id}">
-              <a onclick="viewPatient(${p.id});closeAllDropdowns()">👁 View Details</a>
-              <a onclick="deletePatient(${p.id});closeAllDropdowns()">🗑 Delete</a>
-            </div>
-          </div>
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-sub)">No patients registered yet</td></tr>';
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/patients');
+    const all=d.data;
+    document.getElementById('pTotal').textContent=all.length;
+    document.getElementById('pAdmit').textContent=all.filter(p=>p.admission_status==='ADMITTED').length;
+    document.getElementById('pICU').textContent=all.filter(p=>p.admission_status==='ICU').length;
+    document.getElementById('pOPD').textContent=all.filter(p=>p.admission_status==='OPD').length;
+    document.getElementById('patCnt').textContent=`${all.length} patients`;
+    document.getElementById('patBody').innerHTML=all.length?all.map(p=>`<tr><td><span class="b blue">${p.patient_id_number}</span></td><td><strong>${p.first_name} ${p.last_name}</strong></td><td>${p.age||'—'}/${p.gender?p.gender[0]:'—'}</td><td>${p.phone}</td><td><span class="b dim">${p.blood_group||'—'}</span></td><td><span class="b ${adm(p.admission_status)}">${p.admission_status}</span></td><td>${p.doctor_name||'—'}</td><td><div class="sb gho"><button class="mb">View</button><button class="ab" onclick="td('pR${p.id}')">▾</button><div class="sdrop" id="pR${p.id}"><a onclick="cd()">👁 Details</a><a onclick="cd()">✏️ Edit</a><a onclick="cd()">🗑 Deactivate</a></div></div></td></tr>`).join(''):eRow(8,'No patients registered');
+  } catch(e){toast(e.message,'e');}
 }
-
-async function savePatient(keepOpen = false) {
-  const body = {
-    first_name: document.getElementById('pFirstName').value.trim(),
-    last_name:  document.getElementById('pLastName').value.trim(),
-    email:      document.getElementById('pEmail').value.trim(),
-    phone:      document.getElementById('pPhone').value.trim(),
-    age:        parseInt(document.getElementById('pAge').value) || null,
-    gender:     document.getElementById('pGender').value || null
-  };
-  if (!body.first_name || !body.last_name || !body.email || !body.phone) {
-    showToast('First name, last name, email and phone are required', 'error'); return;
-  }
-  try {
-    await api('/api/v1/patients', { method: 'POST', body: JSON.stringify(body) });
-    showToast('Patient registered successfully ✓', 'success');
-    clearPatientForm();
-    if (!keepOpen) closeModal('patientModal');
-    loadPatients();
-    loadDashboard();
-  } catch (err) { showToast(err.message, 'error'); }
+async function savePat(keepOpen=false) {
+  const body={first_name:g('pfn'),last_name:g('pln'),phone:g('pph'),email:g('pem')||null,age:parseInt(g('page_'))||null,gender:g('pgen')||null,blood_group:g('pblood')||null,admission_status:g('padm'),medical_history:g('phist')||null,allergies:g('pallerg')||null,emergency_contact_name:g('pecn')||null,emergency_contact_phone:g('pecph')||null};
+  if(!body.first_name||!body.last_name||!body.phone){toast('First name, last name, phone required','w');return;}
+  try{await call('/api/v1/patients',{method:'POST',body:JSON.stringify(body)});toast('Patient registered ✓','s');clearPat();if(!keepOpen)closeM('patM');loadPatients();loadDash();}
+  catch(e){toast(e.message,'e');}
 }
+function clearPat(){['pfn','pln','pph','pem','page_','phist','pallerg','pecn','pecph'].forEach(id=>document.getElementById(id).value='');document.getElementById('pgen').value='';document.getElementById('pblood').value='';document.getElementById('padm').value='OPD';}
 
-function clearPatientForm() {
-  ['pFirstName','pLastName','pEmail','pPhone','pAge'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('pGender').value = '';
-}
-
-function viewPatient(id) { showToast(`Patient ID ${id} — detail view coming soon`, 'info'); }
-function deletePatient(id) { showToast(`Delete patient ${id} — confirmation coming soon`, 'info'); }
-function filterPatients() {}
-
-/* ============================================================
-   DOCTORS
-============================================================ */
+// ══════════════════════════════════════════
+// DOCTORS
+// ══════════════════════════════════════════
 async function loadDoctors() {
-  document.getElementById('doctorsBody').innerHTML = '<tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr>';
+  document.getElementById('docBody').innerHTML=lRow(9);
   try {
-    const data = await api('/api/v1/doctors');
-    document.getElementById('doctorCount').textContent = `${data.data.length} doctors`;
-    document.getElementById('doctorsBody').innerHTML = data.data.length ? data.data.map(d => `
-      <tr>
-        <td><strong>${d.first_name} ${d.last_name}</strong></td>
-        <td>${d.email}</td>
-        <td>${d.phone || '—'}</td>
-        <td>${d.specialization || '—'}</td>
-        <td><span class="badge green">Active</span></td>
-        <td>
-          <div class="split-btn ghost">
-            <button class="main-btn" onclick="viewDoctor(${d.id})">View</button>
-            <button class="arrow-btn" onclick="toggleDropdown('doc_${d.id}')">▾</button>
-            <div class="split-dropdown" id="doc_${d.id}">
-              <a onclick="viewDoctor(${d.id});closeAllDropdowns()">👁 View Profile</a>
-              <a onclick="deleteDoctor(${d.id});closeAllDropdowns()">🗑 Remove</a>
-            </div>
-          </div>
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-sub)">No doctors added yet</td></tr>';
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/doctors');
+    const all=d.data;
+    document.getElementById('dTotal').textContent=all.length;
+    document.getElementById('dActive').textContent=all.filter(d=>d.availability_status==='ACTIVE').length;
+    document.getElementById('dCall').textContent=all.filter(d=>d.availability_status==='ON_CALL').length;
+    document.getElementById('dOff').textContent=all.filter(d=>d.availability_status==='OFF_DUTY').length;
+    document.getElementById('docCnt').textContent=`${all.length} doctors`;
+    mkChart('docChart','doughnut',['On Duty','On Call','Off Duty'],[{data:[all.filter(d=>d.availability_status==='ACTIVE').length,all.filter(d=>d.availability_status==='ON_CALL').length,all.filter(d=>d.availability_status==='OFF_DUTY').length],backgroundColor:['rgba(34,212,139,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.8)'],borderWidth:0}]);
+    const depts={};all.forEach(d=>depts[d.department_name||'Other']=(depts[d.department_name||'Other']||0)+1);
+    mkChart('docDeptChart','bar',Object.keys(depts),[{label:'Doctors',data:Object.values(depts),backgroundColor:'rgba(59,158,255,.7)',borderRadius:5}]);
+    document.getElementById('docBody').innerHTML=all.length?all.map(doc=>`<tr><td><span class="b dim">${doc.qr_code_id||'—'}</span></td><td><strong>${doc.first_name} ${doc.last_name}</strong></td><td>${doc.specialization||'—'}</td><td>${doc.department_name||'—'}</td><td><span class="b dim">${doc.shift||'—'}</span></td><td>⭐${doc.rating||'—'}</td><td>${doc.total_patients||0}</td><td><span class="b ${docSt(doc.availability_status)}">${doc.availability_status}</span></td><td><div class="sb gho"><button class="mb">Manage</button><button class="ab" onclick="td('dR${doc.id}')">▾</button><div class="sdrop" id="dR${doc.id}"><a onclick="updDocSt(${doc.id},'ACTIVE');cd()">✅ Active</a><a onclick="updDocSt(${doc.id},'ON_CALL');cd()">📞 On Call</a><a onclick="updDocSt(${doc.id},'OFF_DUTY');cd()">🔴 Off Duty</a><div class="dv"></div><a onclick="gQRDoc('${doc.qr_code_id}','${doc.first_name} ${doc.last_name}');cd()">🪪 Generate QR</a></div></div></td></tr>`).join(''):eRow(9,'No doctors added');
+  } catch(e){toast(e.message,'e');}
 }
-
-async function saveDoctor(keepOpen = false) {
-  const body = {
-    first_name:     document.getElementById('dFirstName').value.trim(),
-    last_name:      document.getElementById('dLastName').value.trim(),
-    email:          document.getElementById('dEmail').value.trim(),
-    phone:          document.getElementById('dPhone').value.trim() || null,
-    specialization: document.getElementById('dSpec').value.trim() || null
-  };
-  if (!body.first_name || !body.last_name || !body.email) {
-    showToast('First name, last name and email are required', 'error'); return;
-  }
-  try {
-    await api('/api/v1/doctors', { method: 'POST', body: JSON.stringify(body) });
-    showToast('Doctor added successfully ✓', 'success');
-    ['dFirstName','dLastName','dEmail','dPhone','dSpec'].forEach(id => document.getElementById(id).value = '');
-    if (!keepOpen) closeModal('doctorModal');
-    loadDoctors();
-    loadDashboard();
-  } catch (err) { showToast(err.message, 'error'); }
+async function saveDoc(keepOpen=false) {
+  const body={first_name:g('dfn'),last_name:g('dln'),email:g('dem'),phone:g('dph')||null,specialization:g('dspec')||null,qualifications:g('dqual')||null,experience_years:parseInt(g('dexp'))||0,shift:g('dshift'),department_id:g('ddept')||null};
+  if(!body.first_name||!body.last_name||!body.email){toast('First name, last name, email required','w');return;}
+  try{await call('/api/v1/doctors',{method:'POST',body:JSON.stringify(body)});toast('Doctor added ✓','s');['dfn','dln','dem','dph','dspec','dqual','dexp'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('docM');loadDoctors();loadDash();loadQRStaff();}
+  catch(e){toast(e.message,'e');}
 }
+async function updDocSt(id,status){try{await call(`/api/v1/doctors/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
 
-function viewDoctor(id) { showToast(`Doctor ID ${id} — detail view coming soon`, 'info'); }
-function deleteDoctor(id) { showToast(`Remove doctor ${id} — coming soon`, 'info'); }
-
-/* ============================================================
-   BEDS
-============================================================ */
-let allBeds = [];
+// ══════════════════════════════════════════
+// BEDS
+// ══════════════════════════════════════════
 async function loadBeds() {
-  document.getElementById('bedGrid').innerHTML = '<div style="padding:32px;text-align:center;width:100%"><div class="spinner"></div></div>';
   try {
-    const data = await api('/api/v1/beds');
-    allBeds = data.data;
+    const d=await call('/api/v1/beds');allBeds=d.data;
+    const free=allBeds.filter(b=>b.status==='FREE').length,occ=allBeds.filter(b=>b.status==='OCCUPIED').length,cln=allBeds.filter(b=>b.status==='CLEANING').length,icu=allBeds.filter(b=>b.bed_type==='ICU').length;
+    document.getElementById('bTotal').textContent=allBeds.length;document.getElementById('bFree').textContent=free;document.getElementById('bOcc').textContent=occ;document.getElementById('bClean').textContent=cln;document.getElementById('bICU').textContent=icu;
+    mkChart('bedChartFull','doughnut',['Free','Occupied','Cleaning','Maintenance'],[{data:[free,occ,cln,allBeds.filter(b=>b.status==='MAINTENANCE').length],backgroundColor:['rgba(34,212,139,.8)','rgba(240,82,82,.8)','rgba(245,166,35,.8)','rgba(255,255,255,.15)'],borderWidth:0}]);
+    document.getElementById('icuGrid').innerHTML=allBeds.filter(b=>b.bed_type==='ICU').map(b=>bedCell(b)).join('');
     renderBeds(allBeds);
-  } catch (err) { showToast(err.message, 'error'); }
+  } catch(e){toast(e.message,'e');}
 }
-
 function renderBeds(beds) {
-  const free = beds.filter(b => b.status === 'FREE').length;
-  const occ  = beds.filter(b => b.status === 'OCCUPIED').length;
-  const icu  = beds.filter(b => b.status === 'ICU').length;
-
-  document.getElementById('bedTotal').textContent = beds.length;
-  document.getElementById('bedFree').textContent  = free;
-  document.getElementById('bedOcc').textContent   = occ;
-  document.getElementById('bedICU').textContent   = icu;
-
-  if (!beds.length) {
-    document.getElementById('bedGrid').innerHTML = '<div class="empty-state" style="width:100%"><div class="empty-icon">🛏️</div><p>No beds configured yet</p></div>';
-    return;
-  }
-
-  document.getElementById('bedGrid').innerHTML = beds.map(b => {
-    const cls = b.status === 'FREE' ? 'free' : b.status === 'ICU' ? 'icu' : 'occupied';
-    const ico = b.status === 'FREE' ? '✅' : b.status === 'ICU' ? '🏥' : '🔴';
-    return `<div class="bed-cell ${cls}" onclick="toggleBed(${b.id},'${b.status}')" title="Click to toggle">
-      <span>${ico}</span>
-      <span class="bed-num">${b.bed_number || b.id}</span>
-      <span>${b.status}</span>
-    </div>`;
+  const floors=[...new Set(beds.map(b=>b.floor_number))].sort();
+  document.getElementById('bedFloors').innerHTML=floors.map(fl=>{
+    const fB=beds.filter(b=>b.floor_number===fl);
+    const blocks=[...new Set(fB.map(b=>b.block))].sort();
+    return `<div style="margin:16px"><div style="font-size:12px;font-weight:700;color:var(--sub);margin-bottom:10px;letter-spacing:.5px;text-transform:uppercase">${fl===5?'🏥 ICU Wing':`Floor ${fl}`} — ${fB.filter(b=>b.status==='FREE').length}/${fB.length} Free</div>${blocks.map(bl=>`<div style="margin-bottom:12px"><div style="font-size:11px;color:var(--dim);margin-bottom:6px">Block ${bl}</div><div class="bed-grid" style="grid-template-columns:repeat(auto-fill,minmax(80px,1fr))">${fB.filter(b=>b.block===bl).map(b=>bedCell(b)).join('')}</div></div>`).join('')}</div>`;
   }).join('');
 }
+function bedCell(b){const cls=b.bed_type==='ICU'?'icu':b.status==='FREE'?'free':b.status==='OCCUPIED'?'occupied':b.status==='CLEANING'?'cleaning':'maintenance';const ic=b.bed_type==='ICU'?'🏥':b.status==='FREE'?'✅':b.status==='OCCUPIED'?'🔴':'🧹';const tip=b.patient_name?`${b.patient_name} (${b.patient_id_number})`:b.status;return `<div class="bed-cell ${cls}" onclick="toggleBed(${b.id},'${b.status}')" title="${tip}"><span>${ic}</span><span class="bn">${b.bed_number}</span><span>${b.status}</span></div>`;}
+function filterBeds(f){if(f==='all')renderBeds(allBeds);else if(f==='ICU')renderBeds(allBeds.filter(b=>b.bed_type==='ICU'));else renderBeds(allBeds.filter(b=>b.status===f));}
+async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{await call(`/api/v1/beds/${id}`,{method:'PATCH',body:JSON.stringify({status:ns})});toast(`Bed → ${ns}`,'s');loadBeds();}catch(e){toast(e.message,'e');}}
 
-async function toggleBed(id, currentStatus) {
-  const newStatus = currentStatus === 'FREE' ? 'OCCUPIED' : 'FREE';
+// ══════════════════════════════════════════
+// ATTENDANCE
+// ══════════════════════════════════════════
+async function loadAttendance() {
+  document.getElementById('attBody').innerHTML=lRow(8);
   try {
-    await api(`/api/v1/beds/${id}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) });
-    showToast(`Bed updated to ${newStatus}`, 'success');
-    loadBeds();
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/attendance');const all=d.data;
+    document.getElementById('attP').textContent=all.filter(a=>a.status==='PRESENT').length;
+    document.getElementById('attA').textContent='—';
+    document.getElementById('attL').textContent=all.filter(a=>{const h=a.check_in?new Date(a.check_in).getHours():null;return h&&h>9;}).length;
+    const avgMs=all.filter(a=>a.duration_minutes).reduce((s,a)=>s+parseFloat(a.duration_minutes),0)/(all.filter(a=>a.duration_minutes).length||1);
+    document.getElementById('attAvg').textContent=all.length?`${Math.floor(avgMs/60)}h${Math.floor(avgMs%60)}m`:'—';
+    document.getElementById('attBody').innerHTML=all.length?all.map(a=>`<tr><td><strong>${a.staff_name}</strong></td><td><span class="b dim">${a.qr_code_id||'—'}</span></td><td>${a.department_name||'—'}</td><td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td><td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'<span class="b amb">Active</span>'}</td><td>${a.duration_minutes?Math.floor(a.duration_minutes/60)+'h '+Math.floor(a.duration_minutes%60)+'m':'—'}</td><td><span class="b dim">${a.method||'QR'}</span></td><td><span class="b ${a.status==='PRESENT'?'grn':'red'}">${a.status}</span></td></tr>`).join(''):eRow(8,'No records today');
+  } catch(e){toast(e.message,'e');}
 }
+async function loadQRStaff(){try{const d=await call('/api/v1/doctors');const sel=document.getElementById('qrStaffSel');sel.innerHTML='<option value="">Select staff…</option>'+d.data.map(doc=>`<option value="${doc.qr_code_id}" data-name="${doc.first_name} ${doc.last_name}">${doc.first_name} ${doc.last_name} (${doc.qr_code_id||'No QR'})</option>`).join('');}catch(e){}}
+function startScan(){toast('Camera QR scanning requires native app / browser API. Use manual entry below.','i');}
+async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call('/api/v1/attendance/checkin',{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
+async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call('/api/v1/attendance/checkout',{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
+function genQR(){const sel=document.getElementById('qrStaffSel');const qrId=sel.value;const name=sel.selectedOptions[0]?.getAttribute('data-name');if(!qrId){toast('Select a staff member','w');return;}const container=document.getElementById('qrContainer');container.innerHTML='';container.style.display='block';new QRCode(container,{text:qrId,width:150,height:150,colorDark:'#000',colorLight:'#fff'});const nm=document.getElementById('qrStaffName');nm.style.display='block';nm.textContent=`${name} · ${qrId}`;}
+function gQRDoc(qrId,name){if(!qrId){toast('No QR ID for this doctor','w');return;}pg('attendance',document.querySelectorAll('.nav')[4]);setTimeout(()=>{const sel=document.getElementById('qrStaffSel');for(let o of sel.options){if(o.value===qrId){sel.value=qrId;break;}}genQR();},300);}
+function printQR(){toast('Connect to printer API for production printing','i');}
 
-function filterBeds(status) {
-  if (status === 'all') renderBeds(allBeds);
-  else renderBeds(allBeds.filter(b => b.status === status));
-}
-
-/* ============================================================
-   APPOINTMENTS
-============================================================ */
-async function loadAppointments() {
-  document.getElementById('appointmentsBody').innerHTML = '<tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>';
+// ══════════════════════════════════════════
+// APPOINTMENTS
+// ══════════════════════════════════════════
+async function loadAppts() {
+  document.getElementById('apptBody').innerHTML=lRow(8);
   try {
-    const data = await api('/api/v1/appointments');
-    document.getElementById('appointmentCount').textContent = `${data.data.length} appointments`;
-    document.getElementById('appointmentsBody').innerHTML = data.data.length ? data.data.map(a => {
-      const statusBadge = a.status === 'COMPLETED' ? 'green' : a.status === 'CANCELLED' ? 'red' : 'blue';
-      return `<tr>
-        <td>${a.patient_first_name || '—'} ${a.patient_last_name || ''}</td>
-        <td>${a.doctor_first_name || '—'} ${a.doctor_last_name || ''}</td>
-        <td>${a.appointment_date ? new Date(a.appointment_date).toLocaleDateString('en-IN') : '—'}</td>
-        <td><span class="badge ${statusBadge}">${a.status}</span></td>
-        <td>
-          <div class="split-btn ghost">
-            <button class="main-btn">Manage</button>
-            <button class="arrow-btn" onclick="toggleDropdown('appt_${a.id}')">▾</button>
-            <div class="split-dropdown" id="appt_${a.id}">
-              <a onclick="closeAllDropdowns()">✅ Mark Complete</a>
-              <a onclick="closeAllDropdowns()">❌ Cancel</a>
-            </div>
-          </div>
-        </td>
-      </tr>`;
-    }).join('') : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-sub)">No appointments yet</td></tr>';
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/appointments');const all=d.data;
+    const comp=all.filter(a=>a.status==='COMPLETED').length,sched=all.filter(a=>a.status==='SCHEDULED').length,canc=all.filter(a=>a.status==='CANCELLED').length;
+    document.getElementById('apTotal').textContent=all.length;document.getElementById('apComp').textContent=comp;document.getElementById('apSched').textContent=sched;document.getElementById('apCanc').textContent=canc;
+    document.getElementById('apptCnt').textContent=`${all.length} appointments`;
+    mkChart('apptChart','doughnut',['Scheduled','Completed','Cancelled'],[{data:[sched,comp,canc],backgroundColor:['rgba(59,158,255,.8)','rgba(34,212,139,.8)','rgba(240,82,82,.8)'],borderWidth:0}]);
+    const types={};all.forEach(a=>types[a.appointment_type]=(types[a.appointment_type]||0)+1);
+    mkChart('apptTypeChart','bar',Object.keys(types),[{label:'Count',data:Object.values(types),backgroundColor:'rgba(167,139,250,.7)',borderRadius:5}]);
+    document.getElementById('apptBody').innerHTML=all.length?all.map(a=>`<tr><td><span class="b dim">${a.appointment_code||'—'}</span></td><td><strong>${a.patient_name||'—'}</strong></td><td>${a.doctor_name||'—'}</td><td>${a.appointment_date?new Date(a.appointment_date).toLocaleDateString('en-IN'):'—'}</td><td>${a.appointment_time||'—'}</td><td><span class="b blue">${a.appointment_type}</span></td><td><span class="b ${a.status==='COMPLETED'?'grn':a.status==='CANCELLED'?'red':'blue'}">${a.status}</span></td><td><div class="sb gho"><button class="mb">Manage</button><button class="ab" onclick="td('aR${a.id}')">▾</button><div class="sdrop" id="aR${a.id}"><a onclick="updAppt(${a.id},'COMPLETED');cd()">✅ Complete</a><a onclick="updAppt(${a.id},'CANCELLED');cd()">❌ Cancel</a></div></div></td></tr>`).join(''):eRow(8,'No appointments');
+  } catch(e){toast(e.message,'e');}
 }
+async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call('/api/v1/appointments',{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
+async function updAppt(id,status){try{await call(`/api/v1/appointments/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
 
-async function saveAppointment() {
-  const body = {
-    patient_id:       parseInt(document.getElementById('aptPatientId').value),
-    doctor_id:        parseInt(document.getElementById('aptDoctorId').value),
-    appointment_date: document.getElementById('aptDate').value,
-    status:           document.getElementById('aptStatus').value
-  };
-  if (!body.patient_id || !body.doctor_id) {
-    showToast('Patient ID and Doctor ID are required', 'error'); return;
-  }
+// ══════════════════════════════════════════
+// PHARMACY
+// ══════════════════════════════════════════
+async function loadMeds() {
+  document.getElementById('medBody').innerHTML=lRow(9);
   try {
-    await api('/api/v1/appointments', { method: 'POST', body: JSON.stringify(body) });
-    showToast('Appointment booked ✓', 'success');
-    closeModal('appointmentModal');
-    loadAppointments();
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/medicines');allMeds=d.data;
+    const ins=allMeds.filter(m=>m.stock_status==='IN_STOCK').length,low=allMeds.filter(m=>m.stock_status==='LOW_STOCK').length,exp=allMeds.filter(m=>m.expiry_status==='EXPIRING_SOON').length;
+    document.getElementById('mTotal').textContent=allMeds.length;document.getElementById('mInStock').textContent=ins;document.getElementById('mLow').textContent=low;document.getElementById('mExpiry').textContent=exp;
+    document.getElementById('medCnt').textContent=`${allMeds.length} items`;
+    mkChart('pharChart','doughnut',['In Stock','Low Stock','Out of Stock'],[{data:[ins,low,allMeds.filter(m=>m.stock_status==='OUT_OF_STOCK').length],backgroundColor:['rgba(34,212,139,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.8)'],borderWidth:0}]);
+    const cats={};allMeds.forEach(m=>cats[m.category||'Other']=(cats[m.category||'Other']||0)+1);
+    mkChart('pharCatChart','bar',Object.keys(cats),[{label:'Items',data:Object.values(cats),backgroundColor:'rgba(59,158,255,.7)',borderRadius:5}]);
+    if(low>0){const b=document.getElementById('lowBadge');b.textContent=low;b.style.display='flex';}
+    renderMeds(allMeds);
+  } catch(e){toast(e.message,'e');}
 }
+function renderMeds(meds){document.getElementById('medBody').innerHTML=meds.length?meds.map(m=>{const pct=Math.min(100,Math.round((m.quantity_in_stock/((m.reorder_level||50)*3))*100));const clr=m.stock_status==='IN_STOCK'?'var(--grn)':m.stock_status==='LOW_STOCK'?'var(--amb)':'var(--red)';const stB=m.stock_status==='IN_STOCK'?'grn':m.stock_status==='LOW_STOCK'?'amb':'red';return `<tr><td><strong>${m.medicine_name}</strong><br><span style="font-size:10px;color:var(--sub)">${m.generic_name||''}</span></td><td><span class="b dim">${m.category||'—'}</span></td><td>${m.quantity_in_stock} ${m.unit||''}</td><td style="min-width:90px"><div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${clr}"></div></div></td><td>${m.reorder_level||'—'}</td><td><span class="${m.expiry_status==='EXPIRING_SOON'?'b amb':m.expiry_status==='EXPIRED'?'b red':''}">${m.expiry_date?new Date(m.expiry_date).toLocaleDateString('en-IN'):'—'}</span></td><td>${m.unit_price?'₹'+m.unit_price:'—'}</td><td><span class="b ${stB}">${m.stock_status}</span></td><td><div class="sb gho"><button class="mb" onclick="restockMed(${m.id})">Restock</button><button class="ab" onclick="td('mR${m.id}')">▾</button><div class="sdrop" id="mR${m.id}"><a onclick="restockMed(${m.id});cd()">📦 Restock</a><a onclick="cd()">📋 History</a><a onclick="cd()">🗑 Remove</a></div></div></td></tr>`}).join(''):eRow(9,'No medicines in inventory');}
+function filterMeds(f){if(f==='low')renderMeds(allMeds.filter(m=>m.stock_status==='LOW_STOCK'||m.stock_status==='OUT_OF_STOCK'));else renderMeds(allMeds);}
+async function saveMed(keepOpen=false){const body={medicine_name:g('mname'),generic_name:g('mgname')||null,category:g('mcat')||null,strength:g('mstr')||null,unit:g('munit')||'units',quantity_in_stock:parseInt(g('mqty'))||0,reorder_level:parseInt(g('mreorder'))||50,unit_price:parseFloat(g('mprice'))||null,expiry_date:g('mexpiry')||null,manufacturer:g('mmfr')||null,batch_number:g('mbatch')||null};if(!body.medicine_name){toast('Medicine name required','w');return;}try{await call('/api/v1/medicines',{method:'POST',body:JSON.stringify(body)});toast('Medicine added ✓','s');['mname','mgname','mcat','mstr','munit','mqty','mreorder','mprice','mexpiry','mmfr','mbatch'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('medM');loadMeds();}catch(e){toast(e.message,'e');}}
+async function restockMed(id){const qty=prompt('Add quantity:');if(!qty||isNaN(parseInt(qty)))return;try{await call(`/api/v1/medicines/${id}/stock`,{method:'PATCH',body:JSON.stringify({quantity:parseInt(qty)})});toast('Stock updated ✓','s');loadMeds();}catch(e){toast(e.message,'e');}}
 
-/* ============================================================
-   MEDICINES
-============================================================ */
-let allMedicines = [];
-async function loadMedicines() {
-  document.getElementById('medicinesBody').innerHTML = '<tr class="loading-row"><td colspan="5"><div class="spinner"></div></td></tr>';
+// ══════════════════════════════════════════
+// ORDERS
+// ══════════════════════════════════════════
+async function loadOrders() {
+  document.getElementById('orderBody').innerHTML=lRow(8);
   try {
-    const data = await api('/api/v1/medicines');
-    allMedicines = data.data;
-    renderMedicines(allMedicines);
-  } catch (err) { showToast(err.message, 'error'); }
+    const d=await call('/api/v1/orders');const all=d.data;
+    document.getElementById('orTotal').textContent=all.length;document.getElementById('orPend').textContent=all.filter(o=>o.status==='PENDING').length;document.getElementById('orDisp').textContent=all.filter(o=>o.status==='DISPATCHED').length;document.getElementById('orDel').textContent=all.filter(o=>o.status==='DELIVERED').length;
+    document.getElementById('orderCnt').textContent=`${all.length} orders`;
+    document.getElementById('orderBody').innerHTML=all.length?all.map(o=>`<tr><td><span class="b dim">${o.order_code||'—'}</span></td><td><span class="b blue">${o.order_type}</span></td><td>${o.supplier_name||'—'}</td><td>₹${fmt(o.total_amount||0)}</td><td><span class="b ${o.payment_status==='PAID'?'grn':'red'}">${o.payment_status}</span></td><td><span class="b ${o.status==='DELIVERED'?'grn':o.status==='PENDING'?'amb':'blue'}">${o.status}</span></td><td>${o.expected_delivery?new Date(o.expected_delivery).toLocaleDateString('en-IN'):'—'}</td><td><div class="sb gho"><button class="mb">Update</button><button class="ab" onclick="td('oR${o.id}')">▾</button><div class="sdrop" id="oR${o.id}"><a onclick="updOrder(${o.id},'DISPATCHED');cd()">🚚 Dispatched</a><a onclick="updOrder(${o.id},'DELIVERED');cd()">✅ Delivered</a><a onclick="updOrder(${o.id},'CANCELLED');cd()">❌ Cancel</a></div></div></td></tr>`).join(''):eRow(8,'No orders yet');
+  } catch(e){toast(e.message,'e');}
 }
+async function saveOrder(){const body={order_type:g('otype'),supplier_id:parseInt(g('osup'))||null,items:[{name:g('oitems'),qty:1}],total_amount:parseFloat(g('oamt'))||0,expected_delivery:g('odel')||null,notes:g('onotes')||null};try{await call('/api/v1/orders',{method:'POST',body:JSON.stringify(body)});toast('Order placed ✓','s');closeM('orderM');loadOrders();}catch(e){toast(e.message,'e');}}
+async function updOrder(id,status){try{await call(`/api/v1/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
 
-function renderMedicines(meds) {
-  document.getElementById('medicineCount').textContent = `${meds.length} items`;
-  document.getElementById('medicinesBody').innerHTML = meds.length ? meds.map(m => {
-    const pct  = Math.min(100, Math.round((m.quantity_in_stock / 1000) * 100));
-    const st   = m.quantity_in_stock < 50 ? 'red' : m.quantity_in_stock < 200 ? 'amber' : 'green';
-    const stLb = m.quantity_in_stock < 50 ? 'Critical' : m.quantity_in_stock < 200 ? 'Low' : 'In Stock';
-    const clr  = st === 'green' ? 'var(--green)' : st === 'amber' ? 'var(--amber)' : 'var(--red)';
-    return `<tr>
-      <td><strong>${m.medicine_name}</strong></td>
-      <td>${m.quantity_in_stock} units</td>
-      <td style="min-width:120px">
-        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${clr}"></div></div>
-      </td>
-      <td><span class="badge ${st}">${stLb}</span></td>
-      <td>
-        <div class="split-btn ghost">
-          <button class="main-btn" onclick="">Restock</button>
-          <button class="arrow-btn" onclick="toggleDropdown('med_${m.id}')">▾</button>
-          <div class="split-dropdown" id="med_${m.id}">
-            <a onclick="closeAllDropdowns()">📦 Restock</a>
-            <a onclick="closeAllDropdowns()">📋 History</a>
-            <a onclick="closeAllDropdowns()">🗑 Remove</a>
-          </div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-sub)">No medicines added yet</td></tr>';
-}
-
-async function saveMedicine(keepOpen = false) {
-  const body = {
-    medicine_name:     document.getElementById('mName').value.trim(),
-    quantity_in_stock: parseInt(document.getElementById('mQty').value) || 0,
-    unit_price:        parseFloat(document.getElementById('mPrice').value) || null,
-    expiry_date:       document.getElementById('mExpiry').value || null
-  };
-  if (!body.medicine_name) { showToast('Medicine name is required', 'error'); return; }
+// ══════════════════════════════════════════
+// FINANCE
+// ══════════════════════════════════════════
+async function loadFinance() {
   try {
-    await api('/api/v1/medicines', { method: 'POST', body: JSON.stringify(body) });
-    showToast('Medicine added to stock ✓', 'success');
-    ['mName','mQty','mPrice'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('mExpiry').value = '';
-    if (!keepOpen) closeModal('medicineModal');
-    loadMedicines();
-  } catch (err) { showToast(err.message, 'error'); }
+    const [ov,sect,trend]=await Promise.all([call('/api/v1/finance/overview'),call('/api/v1/finance/by-sector'),call('/api/v1/finance/trend')]);
+    const o=ov.data;
+    const rev=parseFloat(o.total_revenue)||0,exp=parseFloat(o.total_expense)||0,net=parseFloat(o.net_profit)||0;
+    document.getElementById('finRev').textContent=`₹${fmt(rev)}`;document.getElementById('finExp').textContent=`₹${fmt(exp)}`;document.getElementById('finNet').textContent=`₹${fmt(net)}`;document.getElementById('finPct').textContent=rev>0?`${Math.round((net/rev)*100)}%`:'—';
+    if(trend.data&&trend.data.length){const months=trend.data.map(r=>new Date(r.month).toLocaleString('en',{month:'short'}));mkChart('finTrendChart','line',months,[{label:'Revenue',data:trend.data.map(r=>r.revenue),borderColor:'#22d48b',backgroundColor:'rgba(34,212,139,.08)',tension:.4,fill:true},{label:'Expense',data:trend.data.map(r=>r.expense),borderColor:'#f05252',backgroundColor:'rgba(240,82,82,.08)',tension:.4,fill:true}]);}
+    if(sect.data&&sect.data.length){mkChart('finSectorChart','doughnut',sect.data.map(s=>s.sector||'Other'),[{data:sect.data.map(s=>s.revenue),backgroundColor:['rgba(34,212,139,.8)','rgba(59,158,255,.8)','rgba(167,139,250,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.8)','rgba(244,114,182,.8)'],borderWidth:0}]);document.getElementById('finBody').innerHTML=sect.data.map(s=>{const n=parseFloat(s.revenue)-parseFloat(s.expense);const share=rev>0?Math.round((parseFloat(s.revenue)/rev)*100):0;return `<tr><td><strong>${s.sector||'—'}</strong></td><td style="color:var(--grn)">₹${fmt(s.revenue)}</td><td style="color:var(--red)">₹${fmt(s.expense)}</td><td style="color:${n>=0?'var(--grn)':'var(--red)'}">₹${fmt(Math.abs(n))}</td><td><div class="prog-bar"><div class="prog-fill" style="width:${share}%;background:var(--grn)"></div></div>${share}%</td></tr>`;}).join('');}
+  } catch(e){toast(e.message,'e');}
 }
+async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txsector'),amount:parseFloat(g('txamt')),category:g('txcat')||null,description:g('txdesc')||null};if(!body.amount){toast('Amount required','w');return;}try{await call('/api/v1/finance/transaction',{method:'POST',body:JSON.stringify(body)});toast('Transaction saved ✓','s');closeM('txnM');loadFinance();}catch(e){toast(e.message,'e');}}
 
-function filterMedicines(filter) {
-  if (filter === 'low') renderMedicines(allMedicines.filter(m => m.quantity_in_stock < 50));
-  else renderMedicines(allMedicines);
-}
+// ══════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════
+function toggleNotif(){document.getElementById('np').classList.toggle('on');if(document.getElementById('np').classList.contains('on'))loadNotifs();}
+async function loadNotifs(){try{const d=await call('/api/v1/notifications');const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
+async function markRead(id){try{await call(`/api/v1/notifications/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
+async function markAllRead(){try{await call('/api/v1/notifications/read-all',{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
 
-/* ============================================================
-   MODAL HELPERS
-============================================================ */
-function openModal(id)  {
-  document.getElementById(id).classList.add('open');
-  closeAllDropdowns();
-}
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+// ══════════════════════════════════════════
+// DEPARTMENTS
+// ══════════════════════════════════════════
+async function loadDepts(){try{const d=await call('/api/v1/departments');const sel=document.getElementById('ddept');sel.innerHTML='<option value="">Select…</option>'+d.data.map(dep=>`<option value="${dep.id}">${dep.name}</option>`).join('');loadQRStaff();}catch(e){}}
 
-// Close modal on backdrop click
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-backdrop')) {
-    e.target.classList.remove('open');
-  }
-});
+// ══════════════════════════════════════════
+// MODAL / DROPDOWN
+// ══════════════════════════════════════════
+function openM(id){document.getElementById(id).classList.add('on');cd();}
+function closeM(id){document.getElementById(id).classList.remove('on');}
+function td(id){const el=document.getElementById(id);const was=el.classList.contains('on');cd();if(!was)el.classList.add('on');}
+function cd(){document.querySelectorAll('.sdrop.on').forEach(e=>e.classList.remove('on'));}
 
-/* ============================================================
-   DROPDOWN HELPERS
-============================================================ */
-function toggleDropdown(id) {
-  const el = document.getElementById(id);
-  const wasOpen = el.classList.contains('open');
-  closeAllDropdowns();
-  if (!wasOpen) el.classList.add('open');
-}
-function closeAllDropdowns() {
-  document.querySelectorAll('.split-dropdown.open').forEach(el => el.classList.remove('open'));
-}
+// ══════════════════════════════════════════
+// CSV EXPORT
+// ══════════════════════════════════════════
+function expTbl(id){const t=document.getElementById(id);if(!t)return;const rows=[...t.querySelectorAll('tr')].map(tr=>[...tr.querySelectorAll('th,td')].map(td=>`"${td.innerText.replace(/"/g,'""')}"`).join(','));const b=new Blob([rows.join('\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`medix_${id}_${Date.now()}.csv`;a.click();toast('CSV exported ✓','s');}
 
-/* ============================================================
-   QUICK ADD
-============================================================ */
-function quickAdd() { openModal('patientModal'); }
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function toast(msg,type='i'){const c=document.getElementById('tc');const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<div class="td"></div>${msg}`;c.appendChild(el);setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),250);},3500);}
 
-/* ============================================================
-   EXPORT CSV
-============================================================ */
-function exportTable(tableId) {
-  const table = document.getElementById(tableId);
-  if (!table) return;
-  const rows = [...table.querySelectorAll('tr')].map(tr =>
-    [...tr.querySelectorAll('th,td')].map(td => `"${td.innerText.replace(/"/g,'""')}"`).join(',')
-  );
-  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `medix_${tableId}_${Date.now()}.csv`;
-  a.click();
-  showToast('CSV exported ✓', 'success');
-}
-
-/* ============================================================
-   TOAST
-============================================================ */
-function showToast(msg, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<div class="toast-dot"></div>${msg}`;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('out');
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
-}
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function g(id){return document.getElementById(id)?.value||'';}
+function fmt(n){return parseFloat(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
+function adm(s){return s==='ADMITTED'?'red':s==='ICU'?'pur':s==='OPD'?'grn':'dim';}
+function docSt(s){return s==='ACTIVE'?'grn':s==='ON_CALL'?'amb':s==='OFF_DUTY'?'red':'dim';}
+function lRow(c){return `<tr class="ldr"><td colspan="${c}"><div class="spin"></div></td></tr>`;}
+function eRow(c,msg){return `<tr><td colspan="${c}" style="text-align:center;padding:32px;color:var(--sub);font-size:13px">${msg}</td></tr>`;}
+function timeSince(ts){const diff=Date.now()-new Date(ts).getTime();const mins=Math.floor(diff/60000);if(mins<1)return 'just now';if(mins<60)return `${mins}m ago`;const hrs=Math.floor(mins/60);if(hrs<24)return `${hrs}h ago`;return `${Math.floor(hrs/24)}d ago`;}
 </script>
 </body>
 </html>
