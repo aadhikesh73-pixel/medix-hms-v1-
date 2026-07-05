@@ -207,7 +207,7 @@ font-size:10px;display:flex;align-items:center;justify-content:center}
 .sb.gho .mb,.sb.gho .ab{background:var(--s1);color:var(--txt);border:1px solid var(--bd)}
 .sb.gho .mb:hover,.sb.gho .ab:hover{background:var(--s2)}
 .sb.ambb .mb,.sb.ambb .ab{background:var(--amb);color:#1a0d00}
-.sdrop{position:fixed;background:rgba(8,14,28,.97);
+.sdrop{position:fixed;top:0;right:0;background:rgba(8,14,28,.97);
 backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--bds);
 border-radius:10px;padding:5px;min-width:175px;z-index:99999;
 box-shadow:0 22px 44px rgba(0,0,0,.5);opacity:0;transform:translateY(-5px) scale(.97);
@@ -1173,15 +1173,16 @@ function td(id){
   const was=el.classList.contains('on');
   cd();
   if(!was){
-    const btn=event&&(event.target.closest('.ab')||event.target.closest('.mb')||event.target.closest('.sb'));
+    const src=event&&event.target;
+    const btn=src&&(src.closest('.ab')||src.closest('.mb')||src.closest('.sb'));
     if(btn){
       const r=btn.getBoundingClientRect();
-      let top=r.bottom+4;
-      let right=window.innerWidth-r.right;
-      if(top+260>window.innerHeight) top=r.top-264;
-      if(right<8) right=8;
-      el.style.top=top+'px';
-      el.style.right=right+'px';
+      let t=r.bottom+6;
+      let ri=window.innerWidth-r.right;
+      if(t+280>window.innerHeight) t=r.top-286;
+      if(ri<10) ri=10;
+      el.style.top=t+'px';
+      el.style.right=ri+'px';
       el.style.left='auto';
     }
     el.classList.add('on');
