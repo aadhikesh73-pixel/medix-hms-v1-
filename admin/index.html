@@ -1173,22 +1173,26 @@ function td(id){
   const was=el.classList.contains('on');
   cd();
   if(!was){
+    if(el.parentElement!==document.body) document.body.appendChild(el);
     const src=event&&event.target;
     const btn=src&&(src.closest('.ab')||src.closest('.mb')||src.closest('.sb'));
     if(btn){
       const r=btn.getBoundingClientRect();
       let t=r.bottom+6;
       let ri=window.innerWidth-r.right;
-      if(t+280>window.innerHeight) t=r.top-286;
+      if(t+300>window.innerHeight) t=r.top-306;
       if(ri<10) ri=10;
+      el.style.position='fixed';
       el.style.top=t+'px';
       el.style.right=ri+'px';
       el.style.left='auto';
+      el.style.zIndex='999999';
     }
     el.classList.add('on');
   }
 }
-function cd(){document.querySelectorAll('.sdrop.on').forEach(e=>{e.classList.remove('on');e.style.top='';e.style.right='';e.style.left='';});}
+function cd(){document.querySelectorAll('.sdrop.on').forEach(e=>{e.classList.remove('on');});
+}
 
 // ══════════════════════════════════════════
 // CSV EXPORT
