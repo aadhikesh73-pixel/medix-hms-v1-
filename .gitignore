@@ -1,0 +1,62 @@
+# ── Environment & Secrets ──────────────────
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+*.env
+.env.*
+!.env.example
+
+# ── Node ──────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+
+# ── Logs ──────────────────────────────────
+logs/
+*.log
+pids/
+*.pid
+
+# ── Build outputs ─────────────────────────
+dist/
+build/
+.cache/
+
+# ── OS files ──────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+
+# ── IDE ───────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+
+# ── Uploads / sensitive files ─────────────
+backend/uploads/*
+!backend/uploads/.gitkeep
+backups/
+*.sql.gz
+*.dump
+
+# ── SSL Certs ─────────────────────────────
+*.pem
+*.key
+*.crt
+*.csr
+nginx/ssl/
+
+# ── Deployment scripts with secrets ───────
+deploy_production.sh
+deploy_secrets.sh
