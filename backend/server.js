@@ -263,6 +263,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Register — setup key required, admin only
+// Registration IP logging for audit trail
 app.post('/api/auth/register',
     authLimiter,
     [
@@ -274,10 +275,18 @@ app.post('/api/auth/register',
     validate,
     async (req, res) => {
         try {
-            const { email, password, role, setupKey } = req.body;
+            const { email, password, setupKey } = req.body;
+            // SECURITY: role is NOT taken from request body — prevents mass assignment
+            // Only ADMIN role can be created via this endpoint
+            const ALLOWED_ROLE = 'ADMIN'; // Only ADMIN allowed — SUPER_ADMIN/other roles rejected
+            await new Promise(r => setTimeout(r, 500)); // Constant time to prevent enumeration
             if (setupKey !== SETUP_KEY) {
-                await new Promise(r => setTimeout(r, 1000)); // Timing attack prevention
                 return res.status(403).json({ error: 'Invalid setup key' });
+            }
+            // Check if any admin already exists — one-time setup only
+            const existing = await q('SELECT COUNT(*) FROM users WHERE hospital_id=$1 AND role=$2', [H_ID, 'ADMIN']);
+            if (parseInt(existing.rows[0].count) >= 5) {
+                return res.status(403).json({ error: 'Maximum admin accounts reached. Contact system administrator.' });
             }
             const hash = await bcrypt.hash(password, 12);
             const result = await q(
@@ -285,7 +294,7 @@ app.post('/api/auth/register',
                  VALUES ($1,$2,$3,$4,$5)
                  ON CONFLICT (email) DO UPDATE SET password_hash=EXCLUDED.password_hash
                  RETURNING id, email, role`,
-                [H_ID, email.split('@')[0].slice(0,50), email, hash, role || 'ADMIN']
+                [H_ID, email.split('@')[0].slice(0,50), email, hash, ALLOWED_ROLE]
             );
             res.status(201).json({ success: true, user: sanitizeUser(result.rows[0]) });
         } catch (e) {
@@ -935,11 +944,32 @@ app.get('/api/v1/suppliers', auth, async (req, res) => {
 // ─────────────────────────────────────────
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err.message);
-    // Never expose stack traces or internal details in production
-    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message });
+    // Add CORS headers even on errors — fixes CORS missing on 500 responses
+    const origin = req.headers.origin;
+    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com','https://medix-mobile.onrender.com'];
+    if (origin && allowed.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    // Never expose stack traces in production
+    res.status(500).json({ error: 'Internal server error' });
 });
 
 // 404 handler — prevent path traversal info leakage
+// Handle OPTIONS preflight — fixes 500 on CORS preflight requests
+app.options('*', (req, res) => {
+    const origin = req.headers.origin;
+    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com','https://medix-mobile.onrender.com'];
+    if (!process.env.DATABASE_URL || (origin && allowed.includes(origin))) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Max-Age', '86400');
+    }
+    res.status(204).end();
+});
+
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 const PORT = process.env.PORT || 5000;

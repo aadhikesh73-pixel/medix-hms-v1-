@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /api/
+Disallow: /api/v1/
+Disallow: /api/auth/
+X-Robots-Tag: noindex
