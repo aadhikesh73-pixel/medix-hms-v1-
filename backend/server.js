@@ -22,6 +22,7 @@ const { body, param, query, validationResult } = require('express-validator');
 require('dotenv').config();
 
 const app    = express();
+app.set('trust proxy', 1); // MUST be first — enables correct IP behind Render proxy
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: allowedOrigins(), methods: ['GET','POST'] } });
 
@@ -43,8 +44,6 @@ function allowedOrigins() {
 // Covers: XSS, Clickjacking, MIME sniffing, HSTS,
 //         Content-Security-Policy, CORP, COOP
 // ─────────────────────────────────────────
-app.set('trust proxy', 1);
-
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -127,6 +126,16 @@ app.use(globalLimiter);
 // Covers: Brute Force, Password Spraying,
 //         Credential Stuffing, Account Enumeration
 // ─────────────────────────────────────────
+// In-memory store for failed login tracking
+const loginAttempts = new Map();
+function cleanupLoginAttempts() {
+    const now = Date.now();
+    for (const [key, data] of loginAttempts.entries()) {
+        if (now - data.firstAttempt > 15 * 60 * 1000) loginAttempts.delete(key);
+    }
+}
+setInterval(cleanupLoginAttempts, 60 * 1000);
+
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -134,7 +143,13 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many login attempts. Account temporarily locked. Try again in 15 minutes.' },
     skipSuccessfulRequests: true,
-    keyGenerator: (req) => `${req.ip}-${(req.body?.email||'').toLowerCase()}`,
+    keyGenerator: (req) => {
+        // Use X-Forwarded-For first (Render sets this), fallback to connection IP
+        const forwarded = req.headers['x-forwarded-for'];
+        const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
+        const email = (req.body?.email || '').toLowerCase().trim();
+        return ip + '-' + email;
+    },
 });
 
 // ─────────────────────────────────────────
@@ -294,6 +309,18 @@ app.post('/api/auth/login',
     async (req, res) => {
         try {
             const { email, password } = req.body;
+            // Manual backup rate limiting (works even if express-rate-limit fails)
+            const attemptKey = email?.toLowerCase()?.trim() || 'unknown';
+            const now = Date.now();
+            const attempts = loginAttempts.get(attemptKey) || { count: 0, firstAttempt: now };
+            if (now - attempts.firstAttempt > 15 * 60 * 1000) {
+                attempts.count = 0; attempts.firstAttempt = now;
+            }
+            if (attempts.count >= 10) {
+                const remaining = Math.ceil((15*60*1000 - (now - attempts.firstAttempt)) / 60000);
+                return res.status(429).json({ error: `Account locked. Try again in ${remaining} minutes.` });
+            }
+
             const result = await q('SELECT * FROM users WHERE email=$1 AND is_active=TRUE', [email]);
             const user = result.rows[0];
 
@@ -304,10 +331,15 @@ app.post('/api/auth/login',
                 : await bcrypt.compare(password, dummyHash);
 
             if (!user || !isValid) {
-                return res.status(401).json({ error: 'Invalid email or password' });
+                // Track failed attempt
+            attempts.count++;
+            loginAttempts.set(attemptKey, attempts);
+            return res.status(401).json({ error: 'Invalid email or password' });
             }
 
             await q('UPDATE users SET last_login=NOW() WHERE id=$1', [user.id]);
+            // Clear failed attempts on successful login
+            loginAttempts.delete(attemptKey);
             const token = sign(user);
 
             res.json({
