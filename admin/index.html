@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏥</text></svg>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MediX HMS v4 — Admin</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" integrity="sha512-ZwR1/gSZM3ai6vCdI+LVF1zSq/5HznD3oD+sCoJrzXJ+yKqtkiDlVSy5+df5GW7oxtE5On6/m9E08x0VOwjg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1021,7 +1024,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
 const API = 'https://medix-api-5goh.onrender.com';
 let token = localStorage.getItem('mx_token') || null;
 let user  = JSON.parse(localStorage.getItem('mx_user') || 'null');
-let capAns = 0, curPage = 'dash', allBeds = [], allMeds = [], charts = {};
+let capAns = 0, capSalt = 1, curPage = 'dash', allBeds = [], allMeds = [], charts = {};
 
 // ══════════════════════════════════════════
 // BOOT
@@ -1040,10 +1043,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // CAPTCHA
 // ══════════════════════════════════════════
 function genCap() {
-  const ops=['+','-','×'], op=ops[Math.floor(Math.random()*3)];
-  const a=Math.floor(Math.random()*15)+1, b=Math.floor(Math.random()*12)+1;
-  capAns = op==='+'?a+b:op==='-'?a-b:a*b;
-  document.getElementById('capQ').textContent=`${a} ${op} ${b} = ?`;
+  const ops=['+','-','x'], op=ops[Math.floor(Math.random()*3)];
+  const a=Math.floor(Math.random()*20)+1, b=Math.floor(Math.random()*15)+1;
+  const raw = op==='+'?a+b:op==='-'?a-b:a*b;
+  capSalt = Math.floor(Math.random()*9999)+1000;
+  capAns = raw ^ capSalt;
+  document.getElementById('capQ').textContent=a+' '+op+' '+b+' = ?';
   document.getElementById('capA').value='';
   document.getElementById('capErr').style.display='none';
 }
@@ -1057,7 +1062,7 @@ async function doLogin() {
   const ans=parseInt(document.getElementById('capA').value);
   const errEl=document.getElementById('lerr'), btn=document.getElementById('lbtn');
   errEl.style.display='none';
-  if(isNaN(ans)||ans!==capAns){document.getElementById('capErr').style.display='block';genCap();return;}
+  if(isNaN(ans)||(ans^capSalt)!==capAns){document.getElementById('capErr').style.display='block';genCap();return;}
   if(!email||!pass){errEl.textContent='Email and password required';errEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Signing in…';
   try {

@@ -43,6 +43,8 @@ function allowedOrigins() {
 // Covers: XSS, Clickjacking, MIME sniffing, HSTS,
 //         Content-Security-Policy, CORP, COOP
 // ─────────────────────────────────────────
+app.set('trust proxy', 1);
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -211,6 +213,13 @@ const sanitizeUser = (u) => {
 };
 
 // WebSocket
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Auth required'));
+    try { socket.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); next(); }
+    catch(e) { next(new Error('Invalid token')); }
+});
+
 io.on('connection', socket => {
     socket.on('disconnect', () => {});
 });
@@ -224,7 +233,7 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    res.setHeader('X-Request-ID', Math.random().toString(36).slice(2));
+    res.setHeader('X-Request-ID', require('crypto').randomBytes(16).toString('hex'));
     // Covers: Sensitive Data Exposure via headers
     res.removeHeader('X-Powered-By');
     res.removeHeader('Server');
