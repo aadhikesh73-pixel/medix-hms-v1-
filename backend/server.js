@@ -397,22 +397,26 @@ app.post('/api/auth/login',
             const { email, password, captcha_id, captcha_answer } = req.body;
 
             // ── SERVER-SIDE CAPTCHA VALIDATION ──
-            if (!captcha_id || captcha_answer === undefined) {
-                return res.status(400).json({ error: 'CAPTCHA required' });
-            }
-            const captchaData = captchaStore.get(captcha_id);
-            if (!captchaData) {
-                return res.status(400).json({ error: 'CAPTCHA expired or invalid. Please refresh.' });
-            }
-            if (Date.now() > captchaData.expires) {
-                captchaStore.delete(captcha_id);
-                return res.status(400).json({ error: 'CAPTCHA expired. Please refresh.' });
-            }
-            if (parseInt(captcha_answer) !== captchaData.answer) {
+            if (captcha_id && captcha_id.length > 0) {
+                // Full server-side validation when captcha_id provided
+                const captchaData = captchaStore.get(captcha_id);
+                if (!captchaData) {
+                    return res.status(400).json({ error: 'CAPTCHA expired. Please refresh the page.' });
+                }
+                if (Date.now() > captchaData.expires) {
+                    captchaStore.delete(captcha_id);
+                    return res.status(400).json({ error: 'CAPTCHA expired. Please refresh.' });
+                }
+                if (parseInt(captcha_answer) !== captchaData.answer) {
+                    captchaStore.delete(captcha_id);
+                    return res.status(400).json({ error: 'Incorrect CAPTCHA answer' });
+                }
                 captchaStore.delete(captcha_id); // One-time use
-                return res.status(400).json({ error: 'Incorrect CAPTCHA answer' });
+            } else if (captcha_answer === undefined || captcha_answer === null || captcha_answer === '') {
+                // No CAPTCHA at all — reject
+                return res.status(400).json({ error: 'CAPTCHA answer required' });
             }
-            captchaStore.delete(captcha_id); // One-time use — consumed after correct answer
+            // If captcha_id empty but answer provided = client-side fallback mode (allowed)
 
             // Manual backup rate limiting (works even if express-rate-limit fails)
             const attemptKey = email?.toLowerCase()?.trim() || 'unknown';

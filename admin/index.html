@@ -1032,8 +1032,8 @@ let capAns = 0, capSalt = 1, captchaId = '', curPage = 'dash', allBeds = [], all
 // BOOT
 // ══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  try { genCap(); } catch(e) { console.error('genCap error:', e); }
-  try { document.getElementById('capRef').onclick = genCap; } catch(e) {}
+  try { genCap().catch(e => console.warn('CAPTCHA load:', e)); } catch(e) { console.error('genCap error:', e); }
+  try { document.getElementById('capRef').onclick = () => genCap().catch(e => console.warn(e)); } catch(e) {}
   setInterval(() => { const e = document.getElementById('clk'); if(e) e.textContent = new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }, 1000);
   ['lemail','lpass','capA'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
   document.addEventListener('click', e => { if(!e.target.closest('.sb') && !e.target.closest('.sdrop')) cd(); });
