@@ -167,6 +167,12 @@ const pool = new pg.Pool({
 
 pool.on('error', (err) => { console.error('DB pool error:', err.message); });
 
+// Ensure token_valid_from column exists on startup
+pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_valid_from TIMESTAMP DEFAULT '1970-01-01 00:00:00'`)
+    .then(() => console.log('✅ token_valid_from column ready'))
+    .catch(e => console.error('Column check failed:', e.message));
+
+
 // ─────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────
@@ -192,19 +198,64 @@ const validate = (req, res, next) => {
 // Auth middleware — JWT verification
 // Covers: Broken Authentication, Session Hijacking,
 //         Broken Access Control, IDOR
-const auth = (req, res, next) => {
+// Token revocation store — in-memory blacklist (backed by DB)
+const revokedTokens = new Set();
+
+const auth = async (req, res, next) => {
     const header = req.headers.authorization || '';
     if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing authorization header' });
     const token = header.slice(7);
     if (!token || token.length > 2048) return res.status(401).json({ error: 'Invalid token format' });
+
+    let decoded;
     try {
-        req.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-        next();
+        decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     } catch (err) {
         if (err.name === 'TokenExpiredError') return res.status(401).json({ error: 'Session expired. Please sign in again.' });
         return res.status(401).json({ error: 'Invalid token' });
     }
+
+    // ── V-008 FIX: Verify user still EXISTS and is ACTIVE in DB ──
+    // This instantly kills tokens belonging to deleted accounts
+    try {
+        const userCheck = await pool.query(
+            'SELECT id, role, is_active, token_valid_from FROM users WHERE id=$1 AND is_active=TRUE',
+            [decoded.sub]
+        );
+        if (!userCheck.rows.length) {
+            return res.status(401).json({ error: 'Account not found or deactivated' });
+        }
+        const dbUser = userCheck.rows[0];
+
+        // Check token issued before revocation timestamp (bulk revoke)
+        if (dbUser.token_valid_from) {
+            const validFrom = Math.floor(new Date(dbUser.token_valid_from).getTime() / 1000);
+            if (decoded.iat < validFrom) {
+                return res.status(401).json({ error: 'Token revoked. Please sign in again.' });
+            }
+        }
+
+        // Use role from DB — NOT from JWT (prevents privilege escalation via JWT claims)
+        req.user = { ...decoded, role: dbUser.role };
+        next();
+    } catch (e) {
+        console.error('Auth DB check failed:', e.message);
+        return res.status(500).json({ error: 'Authentication check failed' });
+    }
 };
+
+// Logout endpoint — revokes current token by updating token_valid_from
+app.post('/api/auth/logout', auth, async (req, res) => {
+    try {
+        await pool.query(
+            'UPDATE users SET token_valid_from=NOW() WHERE id=$1',
+            [req.user.sub]
+        );
+        res.json({ success: true, message: 'Logged out successfully. Token revoked.' });
+    } catch (e) {
+        res.status(500).json({ error: 'Logout failed' });
+    }
+});
 
 // Role guard — Covers: Privilege Escalation, Broken Access Control
 const role = (...roles) => (req, res, next) => {
@@ -253,6 +304,32 @@ app.use((req, res, next) => {
     res.removeHeader('X-Powered-By');
     res.removeHeader('Server');
     next();
+});
+
+
+// ── SERVER-SIDE CAPTCHA ──────────────────────────────────────────
+// Covers: CAPTCHA Bypass, Brute Force
+const captchaStore = new Map(); // {id: {answer, expires}}
+
+// Clean expired captchas every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, data] of captchaStore.entries()) {
+        if (now > data.expires) captchaStore.delete(id);
+    }
+}, 5 * 60 * 1000);
+
+app.get('/api/auth/captcha', (req, res) => {
+    const ops = ['+', '-', '*'];
+    const op  = ops[Math.floor(Math.random() * 3)];
+    const a   = Math.floor(Math.random() * 20) + 1;
+    const b   = Math.floor(Math.random() * 15)  + 1;
+    const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
+    const id  = require('crypto').randomBytes(16).toString('hex');
+    const question = a + ' ' + op + ' ' + b + ' = ?';
+
+    captchaStore.set(id, { answer, expires: Date.now() + 5 * 60 * 1000 }); // 5 min TTL
+    res.json({ captcha_id: id, question });
 });
 
 // ─────────────────────────────────────────
@@ -317,7 +394,26 @@ app.post('/api/auth/login',
     validate,
     async (req, res) => {
         try {
-            const { email, password } = req.body;
+            const { email, password, captcha_id, captcha_answer } = req.body;
+
+            // ── SERVER-SIDE CAPTCHA VALIDATION ──
+            if (!captcha_id || captcha_answer === undefined) {
+                return res.status(400).json({ error: 'CAPTCHA required' });
+            }
+            const captchaData = captchaStore.get(captcha_id);
+            if (!captchaData) {
+                return res.status(400).json({ error: 'CAPTCHA expired or invalid. Please refresh.' });
+            }
+            if (Date.now() > captchaData.expires) {
+                captchaStore.delete(captcha_id);
+                return res.status(400).json({ error: 'CAPTCHA expired. Please refresh.' });
+            }
+            if (parseInt(captcha_answer) !== captchaData.answer) {
+                captchaStore.delete(captcha_id); // One-time use
+                return res.status(400).json({ error: 'Incorrect CAPTCHA answer' });
+            }
+            captchaStore.delete(captcha_id); // One-time use — consumed after correct answer
+
             // Manual backup rate limiting (works even if express-rate-limit fails)
             const attemptKey = email?.toLowerCase()?.trim() || 'unknown';
             const now = Date.now();

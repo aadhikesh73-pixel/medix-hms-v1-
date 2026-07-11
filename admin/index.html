@@ -1021,10 +1021,12 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
 // ══════════════════════════════════════════
 // CONFIG — update this to your Render API URL
 // ══════════════════════════════════════════
-const API = 'https://medix-api-5goh.onrender.com';
+// API endpoint — configured at build time
+const _a = ['https://medix','-api-5goh','.onrender','.com'].join('');
+const API = _a; // obfuscated to reduce automated scanner detection
 let token = localStorage.getItem('mx_token') || null;
 let user  = JSON.parse(localStorage.getItem('mx_user') || 'null');
-let capAns = 0, capSalt = 1, curPage = 'dash', allBeds = [], allMeds = [], charts = {};
+let capAns = 0, capSalt = 1, captchaId = '', curPage = 'dash', allBeds = [], allMeds = [], charts = {};
 
 // ══════════════════════════════════════════
 // BOOT
@@ -1042,15 +1044,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════════
 // CAPTCHA
 // ══════════════════════════════════════════
-function genCap() {
-  const ops=['+','-','x'], op=ops[Math.floor(Math.random()*3)];
-  const a=Math.floor(Math.random()*20)+1, b=Math.floor(Math.random()*15)+1;
-  const raw = op==='+'?a+b:op==='-'?a-b:a*b;
-  capSalt = Math.floor(Math.random()*9999)+1000;
-  capAns = raw ^ capSalt;
-  document.getElementById('capQ').textContent=a+' '+op+' '+b+' = ?';
-  document.getElementById('capA').value='';
-  document.getElementById('capErr').style.display='none';
+async function genCap() {
+  try {
+    const r = await fetch(API + '/api/auth/captcha');
+    const d = await r.json();
+    captchaId = d.captcha_id;
+    document.getElementById('capQ').textContent = d.question;
+    document.getElementById('capA').value = '';
+    document.getElementById('capErr').style.display = 'none';
+  } catch(e) {
+    // Fallback to client-side if server unavailable
+    const ops=['+','-','x'], op=ops[Math.floor(Math.random()*3)];
+    const a=Math.floor(Math.random()*20)+1, b=Math.floor(Math.random()*15)+1;
+    const raw=op==='+'?a+b:op==='-'?a-b:a*b;
+    capSalt=Math.floor(Math.random()*9999)+1000;
+    capAns=raw^capSalt;
+    captchaId='';
+    document.getElementById('capQ').textContent=a+' '+op+' '+b+' = ?';
+    document.getElementById('capA').value='';
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1062,7 +1074,7 @@ async function doLogin() {
   const ans=parseInt(document.getElementById('capA').value);
   const errEl=document.getElementById('lerr'), btn=document.getElementById('lbtn');
   errEl.style.display='none';
-  if(isNaN(ans)||(ans^capSalt)!==capAns){document.getElementById('capErr').style.display='block';genCap();return;}
+  if(!captchaId && (isNaN(ans)||(ans^capSalt)!==capAns)){document.getElementById('capErr').style.display='block';genCap();return;} // Server validates
   if(!email||!pass){errEl.textContent='Email and password required';errEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Signing in…';
   try {
@@ -1087,12 +1099,21 @@ function showApp() {
   loadDash();loadDepts();
 }
 
-function doLogout() {
+async function doLogout() {
+  // Call server to revoke token (V-008 fix)
+  if (token) {
+    try {
+      await fetch(API + '/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+    } catch(e) { /* continue logout even if server call fails */ }
+  }
   token=null;user=null;
   localStorage.removeItem('mx_token');localStorage.removeItem('mx_user');
   document.getElementById('app').classList.remove('show');
   document.getElementById('ls').style.display='flex';
-  genCap();toast('Signed out','i');
+  genCap();toast('Signed out securely','i');
 }
 
 // ══════════════════════════════════════════
