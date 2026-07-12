@@ -496,22 +496,19 @@ app.post('/api/auth/login',
             loginAttempts.delete(attemptKey);
             const token = sign(user);
 
-            // V-006: Set httpOnly cookie — token never exposed to JavaScript
-            res.cookie('mx_token', token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-                path: '/'
-            });
+            // V-006: httpOnly cookie — JS cannot read this token
+            const cookieOptions = 'mx_token=' + token +
+                '; HttpOnly; Path=/; Max-Age=' + (7*24*60*60) +
+                (process.env.NODE_ENV === 'production' ? '; Secure; SameSite=Strict' : '; SameSite=Lax');
+            res.setHeader('Set-Cookie', cookieOptions);
 
             res.json({
                 success: true,
+                token: token, // Also return token for backward compat during migration
                 user: { email: user.email, role: user.role, username: user.username }
-                // token NOT returned in body — stored in httpOnly cookie only
             });
         } catch (e) {
-            console.error('Login error:', e.message);
+            console.error('Login error FULL:', e.stack || e.message);
             res.status(500).json({ error: 'Login failed' });
         }
     }

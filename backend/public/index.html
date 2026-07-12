@@ -1036,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ['lemail','lpass','capA'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
   document.addEventListener('click', e => { if(!e.target.closest('.sb') && !e.target.closest('.sdrop')) cd(); });
   document.addEventListener('click', e => { if(e.target.classList.contains('mback')) e.target.classList.remove('on'); });
-  if(user) showApp(); // Session restored from sessionStorage user info
+  if((token||sessionStorage.getItem('mx_user')) && user) showApp();
 });
 
 // ══════════════════════════════════════════
@@ -1079,8 +1079,7 @@ async function doLogin() {
     const res=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,captcha_id:captchaId||'',captcha_answer:String(document.getElementById('capA').value).trim()})});
     const d=await res.json();
     if(!res.ok) throw new Error(d.error||'Login failed');
-    // V-006: Token in httpOnly cookie set by server — not returned in body
-user=d.user;
+    token=d.token||null; user=d.user;
     // V-006: Token stored in httpOnly cookie by server — not in localStorage
 sessionStorage.setItem('mx_user',JSON.stringify(user)); // Only non-sensitive user info
     showApp();
@@ -1121,7 +1120,7 @@ async function doLogout() {
 // ══════════════════════════════════════════
 async function call(path,opts={}) {
   // V-006: credentials:'include' sends httpOnly cookie automatically — no Authorization header needed
-  const res=await fetch(API+path,{...opts,credentials:'include',headers:{'Content-Type':'application/json',...opts.headers}});
+  const headers={'Content-Type':'application/json',...opts.headers}; if(token) headers['Authorization']='Bearer '+token; const res=await fetch(API+path,{...opts,credentials:'include',headers});
   if(res.status===401){doLogout();throw new Error('Session expired');}
   const d=await res.json();
   if(!res.ok) throw new Error(d.error||'Request failed');
