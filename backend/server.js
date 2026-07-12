@@ -20,6 +20,8 @@ const xssClean     = require('xss-clean');
 const mongoSanitize= require('express-mongo-sanitize');
 const { body, param, query, validationResult } = require('express-validator');
 require('dotenv').config();
+const cookieParser = require('cookie-parser');
+const path = require('path');
 
 const app    = express();
 app.set('trust proxy', 1); // MUST be first — enables correct IP behind Render proxy
@@ -73,6 +75,8 @@ app.use(helmet({
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin || allowedOrigins().includes(origin)) return cb(null, true);
+        // In development allow all
+        if (process.env.NODE_ENV !== 'production') return cb(null, true);
         cb(new Error(`CORS policy: origin ${origin} not allowed`));
     },
     methods:            ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
@@ -87,6 +91,7 @@ app.use(cors({
 // Covers: DoS, RCE via large payloads
 // ─────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
+app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // ─────────────────────────────────────────
@@ -202,10 +207,13 @@ const validate = (req, res, next) => {
 const revokedTokens = new Set();
 
 const auth = async (req, res, next) => {
+    // V-006: Read token from httpOnly cookie (preferred) or Authorization header (fallback)
+    const cookieToken = req.cookies?.mx_token;
     const header = req.headers.authorization || '';
-    if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing authorization header' });
-    const token = header.slice(7);
-    if (!token || token.length > 2048) return res.status(401).json({ error: 'Invalid token format' });
+    const headerToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = cookieToken || headerToken;
+    if (!token) return res.status(401).json({ error: 'Authentication required. Please sign in.' });
+    if (token.length > 2048) return res.status(401).json({ error: 'Invalid token format' });
 
     let decoded;
     try {
@@ -251,6 +259,13 @@ app.post('/api/auth/logout', auth, async (req, res) => {
             'UPDATE users SET token_valid_from=NOW() WHERE id=$1',
             [req.user.sub]
         );
+        // Clear the httpOnly cookie
+        res.clearCookie('mx_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            path: '/'
+        });
         res.json({ success: true, message: 'Logged out successfully. Token revoked.' });
     } catch (e) {
         res.status(500).json({ error: 'Logout failed' });
@@ -330,6 +345,36 @@ app.get('/api/auth/captcha', (req, res) => {
 
     captchaStore.set(id, { answer, expires: Date.now() + 5 * 60 * 1000 }); // 5 min TTL
     res.json({ captcha_id: id, question });
+});
+
+
+// ── SERVE ADMIN DASHBOARD with security headers ──────────────────
+// V-003: Admin served from same origin → API URL is relative ('') in frontend
+// V-005: All security headers set here for every HTML/JS/CSS response
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+        res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+        res.setHeader('Content-Security-Policy',
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https:; " +
+            "connect-src 'self'; " +
+            "frame-ancestors 'none'; " +
+            "object-src 'none';"
+        );
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        }
+    }
+}));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ─────────────────────────────────────────
@@ -451,10 +496,19 @@ app.post('/api/auth/login',
             loginAttempts.delete(attemptKey);
             const token = sign(user);
 
+            // V-006: Set httpOnly cookie — token never exposed to JavaScript
+            res.cookie('mx_token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: '/'
+            });
+
             res.json({
                 success: true,
-                token,
                 user: { email: user.email, role: user.role, username: user.username }
+                // token NOT returned in body — stored in httpOnly cookie only
             });
         } catch (e) {
             console.error('Login error:', e.message);

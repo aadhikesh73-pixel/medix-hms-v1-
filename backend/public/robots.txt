@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+X-Robots-Tag: noindex, nofollow, noarchive
+
+# MediX HMS Admin — not for public indexing
