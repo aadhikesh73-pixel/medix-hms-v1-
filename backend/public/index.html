@@ -534,7 +534,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
             </div>
             <div style="text-align:center;margin:12px 0;font-size:11px;color:var(--dim)">— or enter ID manually —</div>
             <div style="display:flex;gap:8px">
-              <input id="manualId" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:var(--rs);color:var(--txt);font-size:13px;outline:none;font-family:inherit" placeholder="Employee QR ID e.g. DOC-0042">
+              <label for="manualId" style="display:none">Employee QR ID</label><input id="manualId" style="flex:1;padding:9px 12px;background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:var(--rs);color:var(--txt);font-size:13px;outline:none;font-family:inherit" placeholder="Employee QR ID e.g. DOC-0042">
               <div class="sb suc"><button class="mb" onclick="doCheckin()">Check In</button><button class="ab" onclick="td('ciD')">▾</button><div class="sdrop" id="ciD"><a onclick="doCheckin();cd()">✅ Check In</a><a onclick="doCheckout();cd()">⬆️ Check Out</a></div></div>
             </div>
             <div class="qr-out" id="qrOut"></div>
@@ -695,7 +695,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
       <div class="mrow"><label>Email</label><input id="pem" type="email" placeholder="patient@email.com"></div>
     </div>
     <div class="g2">
-      <div class="mrow"><label>Age</label><input id="page_" type="number" placeholder="35"></div>
+      <div class="mrow"><label>Age</label><input id="p_age" type="number" placeholder="35"></div>
       <div class="mrow"><label>Gender</label><select id="pgen"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     </div>
     <div class="g2">
@@ -855,7 +855,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
       <div class="mrow"><label>Email</label><input id="peem" type="email" placeholder="patient@email.com"></div>
     </div>
     <div class="g2">
-      <div class="mrow"><label>Age</label><input id="peage" type="number" placeholder="35"></div>
+      <div class="mrow"><label>Age</label><input id="pe_age" type="number" placeholder="35"></div>
       <div class="mrow"><label>Gender</label><select id="pegen"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     </div>
     <div class="g2">
@@ -943,7 +943,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
       <div class="mrow"><label>Email</label><input id="peem" type="email" placeholder="patient@email.com"></div>
     </div>
     <div class="g2">
-      <div class="mrow"><label>Age</label><input id="peage" type="number" placeholder="35"></div>
+      <div class="mrow"><label>Age</label><input id="pe_age" type="number" placeholder="35"></div>
       <div class="mrow"><label>Gender</label><select id="pegen"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
     </div>
     <div class="g2">
@@ -1200,7 +1200,7 @@ async function loadPatients() {
   } catch(e){toast(e.message,'e');}
 }
 async function savePat(keepOpen=false) {
-  const body={first_name:g('pfn'),last_name:g('pln'),phone:g('pph'),email:g('pem')||null,age:parseInt(g('page_'))||null,gender:g('pgen')||null,blood_group:g('pblood')||null,admission_status:g('padm'),medical_history:g('phist')||null,allergies:g('pallerg')||null,emergency_contact_name:g('pecn')||null,emergency_contact_phone:g('pecph')||null};
+  const body={first_name:g('pfn'),last_name:g('pln'),phone:g('pph'),email:g('pem')||null,age:parseInt(g('p_age'))||null,gender:g('pgen')||null,blood_group:g('pblood')||null,admission_status:g('padm'),medical_history:g('phist')||null,allergies:g('pallerg')||null,emergency_contact_name:g('pecn')||null,emergency_contact_phone:g('pecph')||null};
   if(!body.first_name||!body.last_name||!body.phone){toast('First name, last name, phone required','w');return;}
   try{await call('/api/v1/patients',{method:'POST',body:JSON.stringify(body)});toast('Patient registered ✓','s');clearPat();if(!keepOpen)closeM('patM');loadPatients();loadDash();}
   catch(e){toast(e.message,'e');}
@@ -1510,7 +1510,7 @@ async function savePatEdit() {
   if (!id) return;
   const body = {
     first_name: g('pefn'), last_name: g('peln'), phone: g('peph'),
-    email: g('peem')||null, age: parseInt(g('peage'))||null,
+    email: g('peem')||null, age: parseInt(g('pe_age'))||null,
     gender: g('pegen')||null, blood_group: g('peblood')||null,
     address: g('peaddr')||null, medical_history: g('pehist')||null,
     allergies: g('peallerg')||null, admission_status: g('peadm'),
