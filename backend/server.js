@@ -36,6 +36,7 @@ function allowedOrigins() {
         'https://medix-admin.onrender.com',
         'https://medix-patient.onrender.com',
         'https://medix-mobile.onrender.com',
+        'https://medix-api-5goh.onrender.com',  // API serves admin — must allow itself
     ];
     if (process.env.NODE_ENV !== 'production') origins.push('http://localhost:3000','http://localhost:5000','http://localhost:8080');
     return origins;
@@ -74,8 +75,9 @@ app.use(helmet({
 // ─────────────────────────────────────────
 app.use(cors({
     origin: (origin, cb) => {
-        if (!origin || allowedOrigins().includes(origin)) return cb(null, true);
-        // In development allow all
+        // Allow: no origin (same-origin), whitelisted origins, dev mode
+        if (!origin) return cb(null, true);
+        if (allowedOrigins().includes(origin)) return cb(null, true);
         if (process.env.NODE_ENV !== 'production') return cb(null, true);
         cb(new Error(`CORS policy: origin ${origin} not allowed`));
     },
