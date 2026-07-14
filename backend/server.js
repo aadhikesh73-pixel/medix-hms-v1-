@@ -54,7 +54,7 @@ app.use(helmet({
             scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
             styleSrc:       ["'self'", "'unsafe-inline'"],
             imgSrc:         ["'self'", "data:", "https:"],
-            connectSrc:     ["'self'", ...allowedOrigins()],
+            connectSrc:     ["'self'"], // Never list internal URLs in CSP
             frameSrc:       ["'none'"],
             objectSrc:      ["'none'"],
             upgradeInsecureRequests: [],
@@ -75,13 +75,16 @@ app.use(helmet({
 // ─────────────────────────────────────────
 app.use(cors({
     origin: (origin, cb) => {
-        // Allow: no origin (same-origin), whitelisted origins, dev mode
+        // Allow: no origin (same-origin requests), whitelisted origins
         if (!origin) return cb(null, true);
         if (allowedOrigins().includes(origin)) return cb(null, true);
         if (process.env.NODE_ENV !== 'production') return cb(null, true);
-        cb(new Error(`CORS policy: origin ${origin} not allowed`));
+        // Return error object with status — CORS middleware will send 403 not 500
+        const err = new Error('CORS policy violation');
+        err.status = 403;
+        cb(err);
     },
-    methods:            ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    methods:            ['GET','POST','OPTIONS'], // Restrict: PUT/PATCH/DELETE only from same origin
     allowedHeaders:     ['Content-Type','Authorization','X-Request-ID'],
     exposedHeaders:     ['X-RateLimit-Limit','X-RateLimit-Remaining'],
     credentials:        true,
@@ -198,7 +201,12 @@ const sign = (u) => jwt.sign(
 // Validation error handler
 const validate = (req, res, next) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(422).json({ error: 'Validation failed', details: errors.array().map(e => ({ field: e.path, msg: e.msg })) });
+    if (!errors.isEmpty()) {
+        // Generic error — never reveal field names or validation rules to client
+        // Log details server-side only
+        console.error('Validation errors:', errors.array().map(e => e.path + ': ' + e.msg).join(', '));
+        return res.status(400).json({ error: 'Invalid request. Please check your input.' });
+    }
     next();
 };
 
@@ -360,14 +368,17 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('X-XSS-Protection', '1; mode=block');
         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+        // CSP: connect-src uses 'self' only — never list internal URLs
+        // Listing subdomains in CSP exposes full infrastructure to attackers
         res.setHeader('Content-Security-Policy',
             "default-src 'self'; " +
             "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; " +
             "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: https:; " +
+            "img-src 'self' data:; " +
             "connect-src 'self'; " +
             "frame-ancestors 'none'; " +
-            "object-src 'none';"
+            "object-src 'none'; " +
+            "base-uri 'self';"
         );
         if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -448,15 +459,15 @@ app.post('/api/auth/login',
                 // Full server-side validation when captcha_id provided
                 const captchaData = captchaStore.get(captcha_id);
                 if (!captchaData) {
-                    return res.status(400).json({ error: 'CAPTCHA expired. Please refresh the page.' });
+                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
                 }
                 if (Date.now() > captchaData.expires) {
                     captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'CAPTCHA expired. Please refresh.' });
+                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
                 }
                 if (parseInt(captcha_answer) !== captchaData.answer) {
                     captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'Incorrect CAPTCHA answer' });
+                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
                 }
                 captchaStore.delete(captcha_id); // One-time use
             } else if (captcha_answer === undefined || captcha_answer === null || captcha_answer === '') {
@@ -1097,30 +1108,38 @@ app.get('/api/v1/suppliers', auth, async (req, res) => {
 // ─────────────────────────────────────────
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err.message);
-    // Add CORS headers even on errors — fixes CORS missing on 500 responses
+    // CORS violations → 403 Forbidden (not 500)
+    if (err.message && err.message.includes('CORS')) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    // Add CORS headers on errors for whitelisted origins only
     const origin = req.headers.origin;
-    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com','https://medix-mobile.onrender.com'];
+    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com',
+                     'https://medix-mobile.onrender.com','https://medix-api-5goh.onrender.com'];
     if (origin && allowed.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
-    // Never expose stack traces in production
-    res.status(500).json({ error: 'Internal server error' });
+    const status = err.status || 500;
+    res.status(status).json({ error: status === 500 ? 'Internal server error' : 'Request failed' });
 });
 
 // 404 handler — prevent path traversal info leakage
-// Handle OPTIONS preflight — fixes 500 on CORS preflight requests
+// Handle OPTIONS preflight — never return 500, return 403 for unknown origins
 app.options('*', (req, res) => {
     const origin = req.headers.origin;
-    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com','https://medix-mobile.onrender.com'];
-    if (!process.env.DATABASE_URL || (origin && allowed.includes(origin))) {
+    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com',
+                     'https://medix-mobile.onrender.com','https://medix-api-5goh.onrender.com'];
+    if (!origin || allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
         res.setHeader('Access-Control-Allow-Origin', origin || '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Max-Age', '86400');
+        res.setHeader('Access-Control-Max-Age', '3600'); // 1hr not 24hr
+        return res.status(204).end();
     }
-    res.status(204).end();
+    // Non-whitelisted origin → 403, not 500
+    return res.status(403).json({ error: 'Forbidden' });
 });
 
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
