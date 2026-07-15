@@ -330,7 +330,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
       <span class="cap-math" id="capQ">—</span>
       <button class="cap-ref" id="capRef" title="Refresh">↻</button>
     </div>
-    <input type="number" id="capA" placeholder="Type the answer">
+    <input type="text" id="capA" autocomplete="off" spellcheck="false" placeholder="Type your answer here">
     <div class="cap-err" id="capErr">❌ Wrong answer — try again</div>
   </div>
   <button class="lpbtn" id="lbtn" onclick="doLogin()">Sign in to MediX</button>
@@ -1069,7 +1069,7 @@ async function genCap() {
 async function doLogin() {
   const email=document.getElementById('lemail').value.trim();
   const pass=document.getElementById('lpass').value;
-  const ans=parseInt(document.getElementById('capA').value);
+  const ans=document.getElementById('capA').value.trim().toUpperCase();
   const errEl=document.getElementById('lerr'), btn=document.getElementById('lbtn');
   errEl.style.display='none';
   if(!captchaId && (isNaN(ans)||(ans^capSalt)!==capAns)){document.getElementById('capErr').style.display='block';genCap();return;} // Server validates

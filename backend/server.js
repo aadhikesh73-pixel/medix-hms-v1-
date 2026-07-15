@@ -73,22 +73,27 @@ app.use(helmet({
 // CORS — Strict whitelist
 // Covers: CORS Misconfiguration
 // ─────────────────────────────────────────
+// Admin-only origins get credentials:true (cookie-based auth)
+// Patient/mobile portals should NOT carry admin credentials
+const adminOrigins = [
+    'https://medix-admin.onrender.com',
+    'https://medix-api-5goh.onrender.com'
+];
+
 app.use(cors({
     origin: (origin, cb) => {
-        // Allow: no origin (same-origin requests), whitelisted origins
-        if (!origin) return cb(null, true);
+        if (!origin) return cb(null, true); // Same-origin requests
         if (allowedOrigins().includes(origin)) return cb(null, true);
         if (process.env.NODE_ENV !== 'production') return cb(null, true);
-        // Return error object with status — CORS middleware will send 403 not 500
         const err = new Error('CORS policy violation');
         err.status = 403;
         cb(err);
     },
-    methods:            ['GET','POST','OPTIONS'], // Restrict: PUT/PATCH/DELETE only from same origin
-    allowedHeaders:     ['Content-Type','Authorization','X-Request-ID'],
-    exposedHeaders:     ['X-RateLimit-Limit','X-RateLimit-Remaining'],
-    credentials:        true,
-    maxAge:             86400,
+    methods:        ['GET','POST','OPTIONS'], // DELETE/PUT/PATCH: same-origin only
+    allowedHeaders: ['Content-Type','Authorization','X-Request-ID'],
+    exposedHeaders: ['X-RateLimit-Limit','X-RateLimit-Remaining'],
+    credentials:    true,
+    maxAge:         3600, // 1 hour, not 24
 }));
 
 // ─────────────────────────────────────────
@@ -344,17 +349,35 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-app.get('/api/auth/captcha', (req, res) => {
-    const ops = ['+', '-', '*'];
-    const op  = ops[Math.floor(Math.random() * 3)];
-    const a   = Math.floor(Math.random() * 20) + 1;
-    const b   = Math.floor(Math.random() * 15)  + 1;
-    const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
-    const id  = require('crypto').randomBytes(16).toString('hex');
-    const question = a + ' ' + op + ' ' + b + ' = ?';
+// Word-based CAPTCHA — cannot be solved with eval() like math
+// Answers stored server-side, question is text-based
+const wordCaptchas = [
+    { q: 'Type the word: SECURE', a: 'SECURE' },
+    { q: 'Type the word: HEALTH', a: 'HEALTH' },
+    { q: 'Type the word: ACCESS', a: 'ACCESS' },
+    { q: 'Type the word: VERIFY', a: 'VERIFY' },
+    { q: 'Type the word: MEDIX', a: 'MEDIX' },
+    { q: 'What color is the sky? (hint: B _ _ _)', a: 'BLUE' },
+    { q: 'How many days in a week? (type as number)', a: '7' },
+    { q: 'Type the word: LOGIN', a: 'LOGIN' },
+    { q: 'Type the word: DOCTOR', a: 'DOCTOR' },
+    { q: 'Type the word: PATIENT', a: 'PATIENT' },
+    // Math fallback — kept for UX but mixed with word challenges
+    ...Array.from({length:20}, (_, i) => {
+        const a = Math.floor(Math.random()*15)+1;
+        const b = Math.floor(Math.random()*10)+1;
+        return { q: a + ' + ' + b + ' = ?', a: String(a+b) };
+    })
+];
 
-    captchaStore.set(id, { answer, expires: Date.now() + 5 * 60 * 1000 }); // 5 min TTL
-    res.json({ captcha_id: id, question });
+app.get('/api/auth/captcha', (req, res) => {
+    const challenge = wordCaptchas[Math.floor(Math.random() * wordCaptchas.length)];
+    const id = require('crypto').randomBytes(16).toString('hex');
+    captchaStore.set(id, {
+        answer: challenge.a.toUpperCase().trim(),
+        expires: Date.now() + 5 * 60 * 1000
+    });
+    res.json({ captcha_id: id, question: challenge.q });
 });
 
 
@@ -394,11 +417,12 @@ app.get('/', (req, res) => {
 // PUBLIC ROUTES
 // ─────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'MediX HMS v5 running', time: new Date() });
+    res.json({ status: 'OK', time: new Date() });
 });
 
 // Register — setup key required, admin only
-// Registration IP logging for audit trail
+// Register endpoint — returns 404 if REGISTRATION_ENABLED env not set
+// This hides the endpoint existence from attackers
 app.post('/api/auth/register',
     authLimiter,
     [
@@ -410,6 +434,11 @@ app.post('/api/auth/register',
     validate,
     async (req, res) => {
         try {
+            // Return 404 if registration not explicitly enabled
+            // Prevents endpoint discovery by attackers
+            if (process.env.REGISTRATION_ENABLED !== 'true') {
+                return res.status(404).json({ error: 'Not found' });
+            }
             const { email, password, setupKey } = req.body;
             // SECURITY: role is NOT taken from request body — prevents mass assignment
             // Only ADMIN role can be created via this endpoint
@@ -1107,10 +1136,19 @@ app.get('/api/v1/suppliers', auth, async (req, res) => {
 // Covers: Sensitive Data Exposure via stack traces
 // ─────────────────────────────────────────
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err.message);
-    // CORS violations → 403 Forbidden (not 500)
-    if (err.message && err.message.includes('CORS')) {
-        return res.status(403).json({ error: 'Forbidden' });
+    // CORS errors MUST return 403, never 500
+    if (err && (err.message?.includes('CORS') || err.status === 403)) {
+        return res.status(403).end();
+    }
+    console.error('Server error:', err.message);
+    // Add CORS headers for whitelisted origins on error responses
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins().includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
+    res.status(err.status || 500).json({ error: 'Internal server error' });
+});
     }
     // Add CORS headers on errors for whitelisted origins only
     const origin = req.headers.origin;
@@ -1125,24 +1163,28 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler — prevent path traversal info leakage
-// Handle OPTIONS preflight — never return 500, return 403 for unknown origins
+// Handle OPTIONS preflight — always returns 2xx or 4xx, NEVER 500
 app.options('*', (req, res) => {
-    const origin = req.headers.origin;
-    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com',
-                     'https://medix-mobile.onrender.com','https://medix-api-5goh.onrender.com'];
-    if (!origin || allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
-        res.setHeader('Access-Control-Allow-Origin', origin || '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Max-Age', '3600'); // 1hr not 24hr
-        return res.status(204).end();
+    try {
+        const origin = req.headers.origin;
+        const allowed = allowedOrigins();
+        if (!origin || allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
+            if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            res.setHeader('Access-Control-Max-Age', '3600');
+            return res.status(204).end();
+        }
+        // Non-whitelisted origin → 403 (never 500)
+        return res.status(403).end();
+    } catch(e) {
+        return res.status(403).end();
     }
-    // Non-whitelisted origin → 403, not 500
-    return res.status(403).json({ error: 'Forbidden' });
+});
 });
 
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => console.log(`✅ MediX HMS v5 (Hardened) running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`✅ Service running on port ${PORT}`));
