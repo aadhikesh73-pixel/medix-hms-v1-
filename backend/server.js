@@ -416,7 +416,7 @@ setInterval(() => {
 app.get('/api/auth/captcha', (req, res) => {
     const c = wordCaptchas[Math.floor(Math.random() * wordCaptchas.length)];
     const id = require('crypto').randomBytes(16).toString('hex');
-    captchaStore.set(id, { answer: c.a, expires: Date.now() + 5 * 60 * 1000 });
+    captchaStore.set(id, { answer: c.a, expires: Date.now() + 30 * 60 * 1000 }); // 30 min TTL
     res.json({ captcha_id: id, question: c.q });
 });
 
@@ -532,11 +532,12 @@ app.post('/api/auth/login',
                 // Full server-side validation when captcha_id provided
                 const captchaData = captchaStore.get(captcha_id);
                 if (!captchaData) {
-                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
+                    // Server restarted — captchaStore wiped. Ask client to refresh captcha.
+                    return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
                 }
                 if (Date.now() > captchaData.expires) {
                     captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
+                    return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
                 }
                 if (parseInt(captcha_answer) !== captchaData.answer) {
                     captchaStore.delete(captcha_id);
