@@ -54,7 +54,7 @@ app.use(helmet({
             scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
             styleSrc:       ["'self'", "'unsafe-inline'"],
             imgSrc:         ["'self'", "data:", "https:"],
-            connectSrc:     ["'self'"], // Never list internal URLs in CSP
+            connectSrc:     ["'self'"], // SECURITY: Never list internal URLs in CSP header
             frameSrc:       ["'none'"],
             objectSrc:      ["'none'"],
             upgradeInsecureRequests: [],
@@ -116,6 +116,50 @@ app.use(mongoSanitize({ replaceWith: '_' }));
 // Covers: Parameter Tampering, HPP attacks
 // ─────────────────────────────────────────
 app.use(hpp());
+
+// ── CRITICAL: Type Sanitizer Middleware ─────────────────────────
+// Prevents type confusion attacks (email as array/bool/object → 500)
+// Coerces all string fields to actual strings before validation
+app.use((req, res, next) => {
+    if (req.body && typeof req.body === 'object') {
+        const sanitize = (obj) => {
+            for (const key of Object.keys(obj)) {
+                const val = obj[key];
+                // Force string fields to string type
+                const stringFields = ['email','password','username','setupKey',
+                    'captcha_id','captcha_answer','first_name','last_name',
+                    'phone','specialization','status','role','method',
+                    'qr_code_id','order_type','transaction_type','sector',
+                    'category','description','medicine_name','title','message'];
+                if (stringFields.includes(key)) {
+                    if (val === null || val === undefined) {
+                        obj[key] = '';
+                    } else if (typeof val !== 'string') {
+                        // Array, object, bool, number → reject
+                        return false;
+                    }
+                }
+                // Force numeric fields to numbers
+                const numFields = ['age','quantity','amount','patient_id',
+                    'doctor_id','supplier_id','department_id','staff_id'];
+                if (numFields.includes(key) && val !== null && val !== undefined) {
+                    if (typeof val === 'string') {
+                        obj[key] = parseFloat(val) || null;
+                    } else if (typeof val !== 'number') {
+                        obj[key] = null;
+                    }
+                }
+            }
+            return true;
+        };
+        if (!sanitize(req.body)) {
+            return res.status(400).json({ error: 'Invalid request' });
+        }
+    }
+    next();
+});
+
+
 
 // ─────────────────────────────────────────
 // GLOBAL RATE LIMITER
@@ -205,7 +249,7 @@ const validate = (req, res, next) => {
         // Generic error — never reveal field names or validation rules to client
         // Log details server-side only
         console.error('Validation errors:', errors.array().map(e => e.path + ': ' + e.msg).join(', '));
-        return res.status(400).json({ error: 'Invalid request. Please check your input.' });
+        return res.status(400).json({ error: 'Invalid request' });
     }
     next();
 };
@@ -334,7 +378,32 @@ app.use((req, res, next) => {
 
 // ── SERVER-SIDE CAPTCHA ──────────────────────────────────────────
 // Covers: CAPTCHA Bypass, Brute Force
-const captchaStore = new Map(); // {id: {answer, expires}}
+const captchaStore = new Map();
+
+// MEDIUM-2: Word-based CAPTCHA — cannot be solved with eval() or regex math
+const wordCaptchas = [
+    {q:'Type exactly: SECURE',    a:'SECURE'},
+    {q:'Type exactly: HEALTH',    a:'HEALTH'},
+    {q:'Type exactly: ACCESS',    a:'ACCESS'},
+    {q:'Type exactly: VERIFY',    a:'VERIFY'},
+    {q:'Type exactly: MEDIX',     a:'MEDIX'},
+    {q:'Type exactly: LOGIN',     a:'LOGIN'},
+    {q:'Type exactly: DOCTOR',    a:'DOCTOR'},
+    {q:'Type exactly: PATIENT',   a:'PATIENT'},
+    {q:'Type exactly: HOSPITAL',  a:'HOSPITAL'},
+    {q:'Type exactly: ADMIN',     a:'ADMIN'},
+    {q:'Type exactly: SYSTEM',    a:'SYSTEM'},
+    {q:'Type exactly: PORTAL',    a:'PORTAL'},
+    {q:'Days in a week (number)', a:'7'},
+    {q:'Months in a year (number)',a:'12'},
+    {q:'Hours in a day (number)', a:'24'},
+    {q:'Type exactly: RECORD',    a:'RECORD'},
+    {q:'Type exactly: CLINIC',    a:'CLINIC'},
+    {q:'Type exactly: NURSE',     a:'NURSE'},
+    {q:'Type exactly: PHARMACY',  a:'PHARMACY'},
+    {q:'Type exactly: MEDICINE',  a:'MEDICINE'}
+];
+ // {id: {answer, expires}}
 
 // Clean expired captchas every 5 minutes
 setInterval(() => {
@@ -345,16 +414,10 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.get('/api/auth/captcha', (req, res) => {
-    const ops = ['+', '-', '*'];
-    const op  = ops[Math.floor(Math.random() * 3)];
-    const a   = Math.floor(Math.random() * 20) + 1;
-    const b   = Math.floor(Math.random() * 15)  + 1;
-    const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
-    const id  = require('crypto').randomBytes(16).toString('hex');
-    const question = a + ' ' + op + ' ' + b + ' = ?';
-
-    captchaStore.set(id, { answer, expires: Date.now() + 5 * 60 * 1000 }); // 5 min TTL
-    res.json({ captcha_id: id, question });
+    const c = wordCaptchas[Math.floor(Math.random() * wordCaptchas.length)];
+    const id = require('crypto').randomBytes(16).toString('hex');
+    captchaStore.set(id, { answer: c.a, expires: Date.now() + 5 * 60 * 1000 });
+    res.json({ captcha_id: id, question: c.q });
 });
 
 
@@ -394,7 +457,7 @@ app.get('/', (req, res) => {
 // PUBLIC ROUTES
 // ─────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', time: new Date() });
+    res.status(200).end(); // Minimal response — no info leaked
 });
 
 // Register — setup key required, admin only
@@ -410,9 +473,7 @@ app.post('/api/auth/register',
     validate,
     async (req, res) => {
         try {
-            if (process.env.REGISTRATION_ENABLED !== 'true') {
-                return res.status(404).json({ error: 'Not found' });
-            }
+            if (process.env.REGISTRATION_ENABLED !== 'true') return res.status(404).end();
             const { email, password, setupKey } = req.body;
             // SECURITY: role is NOT taken from request body — prevents mass assignment
             // Only ADMIN role can be created via this endpoint
@@ -455,27 +516,36 @@ app.post('/api/auth/login',
     validate,
     async (req, res) => {
         try {
-            const { email, password, captcha_id, captcha_answer } = req.body;
+            // CRITICAL-1: Ensure all fields are strings before processing
+            const rawEmail = req.body?.email;
+            const rawPass  = req.body?.password;
+            if (typeof rawEmail !== 'string' || typeof rawPass !== 'string') {
+                return res.status(400).json({ error: 'Invalid request' });
+            }
+            const email         = rawEmail.trim().toLowerCase().slice(0, 255);
+            const password      = rawPass.slice(0, 128);
+            const captcha_id    = typeof req.body?.captcha_id === 'string' ? req.body.captcha_id : '';
+            const captcha_answer= typeof req.body?.captcha_answer !== 'undefined' ? String(req.body.captcha_answer) : '';
 
             // ── SERVER-SIDE CAPTCHA VALIDATION ──
             if (captcha_id && captcha_id.length > 0) {
                 // Full server-side validation when captcha_id provided
                 const captchaData = captchaStore.get(captcha_id);
                 if (!captchaData) {
-                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
+                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
                 }
                 if (Date.now() > captchaData.expires) {
                     captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
+                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
                 }
                 if (parseInt(captcha_answer) !== captchaData.answer) {
                     captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'Verification failed. Please try again.' });
+                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
                 }
                 captchaStore.delete(captcha_id); // One-time use
             } else if (captcha_answer === undefined || captcha_answer === null || captcha_answer === '') {
                 // No CAPTCHA at all — reject
-                return res.status(400).json({ error: 'CAPTCHA answer required' });
+                return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
             }
             // If captcha_id empty but answer provided = client-side fallback mode (allowed)
 
@@ -1148,4 +1218,4 @@ app.options('*', (req, res) => {
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => console.log(`✅ Service running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`✅ MediX HMS v5 (Hardened) running on port ${PORT}`));
