@@ -596,6 +596,7 @@ app.post('/api/auth/login',
             });
         } catch (e) {
             console.error('Login error FULL:', e.stack || e.message);
+            return res.status(500).json({ error: e.message, debug: true });
             res.status(500).json({ error: 'Login failed' });
         }
     }
