@@ -517,6 +517,7 @@ app.post('/api/auth/login',
     async (req, res) => {
         try {
             // CRITICAL-1: Ensure all fields are strings before processing
+            console.log('LOGIN body:', JSON.stringify({emailType:typeof req.body?.email, email:String(req.body?.email).slice(0,30), cap_id:req.body?.captcha_id, cap_ans:req.body?.captcha_answer}));
             const rawEmail = req.body?.email;
             const rawPass  = req.body?.password;
             if (typeof rawEmail !== 'string' || typeof rawPass !== 'string') {
@@ -567,6 +568,8 @@ app.post('/api/auth/login',
 
             // Constant-time comparison prevents user enumeration
             const dummyHash = '$2b$12$invalidhashfortimingattackprevention123456789012';
+            console.log('USER FOUND:', !!user, 'email:', user?.email, 'hash_prefix:', user?.password_hash?.slice(0,15));
+            console.log('PASSWORD to compare:', password?.slice(0,3)+'***', 'length:', password?.length);
             const isValid = user
                 ? await bcrypt.compare(password, user.password_hash)
                 : await bcrypt.compare(password, dummyHash);
