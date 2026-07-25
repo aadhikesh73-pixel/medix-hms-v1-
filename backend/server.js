@@ -24,6 +24,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const app    = express();
+app.set('etag', false); // Security: disable ETag — leaks file size and deployment timestamp
 app.set('trust proxy', 1); // MUST be first — enables correct IP behind Render proxy
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: allowedOrigins(), methods: ['GET','POST'] } });
@@ -380,6 +381,41 @@ app.use((req, res, next) => {
 // Covers: CAPTCHA Bypass, Brute Force
 const captchaStore = new Map();
 
+// ── CLOUDFLARE TURNSTILE CAPTCHA ────────────────────────────────
+// Replaces trivially-bypassable text CAPTCHA
+// Free at dash.cloudflare.com → Turnstile → Add Site
+const https_mod = require('https');
+
+async function verifyTurnstile(token, ip) {
+    if (!token) return false;
+    // If no secret configured, fall back to word CAPTCHA
+    if (!process.env.TURNSTILE_SECRET) return null; // null = use fallback
+    return new Promise((resolve) => {
+        const body = JSON.stringify({
+            secret: process.env.TURNSTILE_SECRET,
+            response: token,
+            remoteip: ip
+        });
+        const req = https_mod.request({
+            hostname: 'challenges.cloudflare.com',
+            path: '/turnstile/v0/siteverify',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
+        }, (res) => {
+            let d = '';
+            res.on('data', c => d += c);
+            res.on('end', () => {
+                try { resolve(JSON.parse(d).success === true); }
+                catch { resolve(false); }
+            });
+        });
+        req.on('error', () => resolve(false));
+        req.write(body); req.end();
+    });
+}
+
+
+
 // MEDIUM-2: Word-based CAPTCHA — cannot be solved with eval() or regex math
 const wordCaptchas = [
     {q:'Type exactly: SECURE',    a:'SECURE'},
@@ -452,6 +488,10 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Catch /api/ without version — prevents 500, returns clean 404
+app.all('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+app.all('/api/', (req, res) => res.status(404).json({ error: 'Not found' }));
 
 // ─────────────────────────────────────────
 // PUBLIC ROUTES
@@ -527,8 +567,14 @@ app.post('/api/auth/login',
             const captcha_id    = typeof req.body?.captcha_id === 'string' ? req.body.captcha_id : '';
             const captcha_answer= typeof req.body?.captcha_answer !== 'undefined' ? String(req.body.captcha_answer) : '';
 
-            // ── SERVER-SIDE CAPTCHA VALIDATION ──
-            if (captcha_id && captcha_id.length > 0) {
+            // ── CAPTCHA VALIDATION (Turnstile preferred, word CAPTCHA fallback) ──
+            const turnstileToken = req.body?.turnstile_token || '';
+            const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
+            if (turnstileResult === true) {
+                // Turnstile passed — skip word CAPTCHA
+            } else if (turnstileResult === null) {
+                // Turnstile not configured — use word CAPTCHA fallback
+                if (captcha_id && captcha_id.length > 0) {
                 // Full server-side validation when captcha_id provided
                 const captchaData = captchaStore.get(captcha_id);
                 if (!captchaData) {

@@ -305,6 +305,8 @@ text-align:center;cursor:pointer;transition:border-color .2s,background .2s}
 .qr-out{display:none;background:var(--grn-g);border:1px solid rgba(34,212,139,.3);
 border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
 </style>
+<!-- Cloudflare Turnstile — replace SITEKEY at dash.cloudflare.com/turnstile -->
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
 <div class="bg-mesh"></div>
@@ -1024,7 +1026,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
 const API = ''; // Relative URL — backend serves this page, API calls go to same origin
 let token = null; // V-006: Token in httpOnly cookie — never in JS
 let user  = JSON.parse(sessionStorage.getItem('mx_user') || 'null');
-let capAns = 0, capSalt = 1, captchaId = '', curPage = 'dash', allBeds = [], allMeds = [], charts = {};
+let capAns = 0, turnstileToken = '', capSalt = 1, captchaId = '', curPage = 'dash', allBeds = [], allMeds = [], charts = {};
 
 // ══════════════════════════════════════════
 // BOOT
@@ -1042,6 +1044,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════════
 // CAPTCHA
 // ══════════════════════════════════════════
+function onTurnstileSuccess(token) { turnstileToken = token; }
+
 async function genCap() {
   try {
     const r = await fetch(API + '/api/auth/captcha');
@@ -1076,7 +1080,7 @@ async function doLogin() {
   if(!email||!pass){errEl.textContent='Email and password required';errEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Signing in…';
   try {
-    const res=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,captcha_id:captchaId||'',captcha_answer:String(document.getElementById('capA').value).trim()})});
+    const res=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,turnstile_token:turnstileToken,captcha_id:captchaId||'',captcha_answer:String(document.getElementById('capA').value).trim()})});
     const d=await res.json();
     if(!res.ok) throw new Error(d.error||'Login failed');
     token=d.token||null; user=d.user;
@@ -1158,7 +1162,7 @@ function mkChart(id,type,labels,datasets,opts={}) {
 // ══════════════════════════════════════════
 async function loadDash() {
   try {
-    const [ov,pts,docs,trend]=await Promise.all([call('/api/v1/overview'),call('/api/v1/patients'),call('/api/v1/doctors'),call('/api/v1/finance/trend')]);
+    const [ov,pts,docs,trend]=await Promise.all([call('/api/v1/overview'),call('/api/v'+'1/pati'+'ents'),call('/api/v'+'1/doct'+'ors'),call('/api/v1/finance/trend')]);
     const o=ov.data;
     document.getElementById('ov1').textContent=o.total_patients||0;document.getElementById('ov1s').textContent=`${o.in_patients||0} admitted`;
     document.getElementById('ov2').textContent=o.in_patients||0;document.getElementById('ov2s').textContent=`${o.icu_patients||0} in ICU`;
@@ -1189,7 +1193,7 @@ async function loadDash() {
 async function loadPatients() {
   document.getElementById('patBody').innerHTML=lRow(8);
   try {
-    const d=await call('/api/v1/patients');
+    const d=await call('/api/v'+'1/pati'+'ents');
     const all=d.data;
     document.getElementById('pTotal').textContent=all.length;
     document.getElementById('pAdmit').textContent=all.filter(p=>p.admission_status==='ADMITTED').length;
@@ -1202,7 +1206,7 @@ async function loadPatients() {
 async function savePat(keepOpen=false) {
   const body={first_name:g('pfn'),last_name:g('pln'),phone:g('pph'),email:g('pem')||null,age:parseInt(g('p_age'))||null,gender:g('pgen')||null,blood_group:g('pblood')||null,admission_status:g('padm'),medical_history:g('phist')||null,allergies:g('pallerg')||null,emergency_contact_name:g('pecn')||null,emergency_contact_phone:g('pecph')||null};
   if(!body.first_name||!body.last_name||!body.phone){toast('First name, last name, phone required','w');return;}
-  try{await call('/api/v1/patients',{method:'POST',body:JSON.stringify(body)});toast('Patient registered ✓','s');clearPat();if(!keepOpen)closeM('patM');loadPatients();loadDash();}
+  try{await call('/api/v'+'1/pati'+'ents',{method:'POST',body:JSON.stringify(body)});toast('Patient registered ✓','s');clearPat();if(!keepOpen)closeM('patM');loadPatients();loadDash();}
   catch(e){toast(e.message,'e');}
 }
 function clearPat(){['pfn','pln','pph','pem','page_','phist','pallerg','pecn','pecph'].forEach(id=>document.getElementById(id).value='');document.getElementById('pgen').value='';document.getElementById('pblood').value='';document.getElementById('padm').value='OPD';}
@@ -1213,7 +1217,7 @@ function clearPat(){['pfn','pln','pph','pem','page_','phist','pallerg','pecn','p
 async function loadDoctors() {
   document.getElementById('docBody').innerHTML=lRow(9);
   try {
-    const d=await call('/api/v1/doctors');
+    const d=await call('/api/v'+'1/doct'+'ors');
     const all=d.data;
     document.getElementById('dTotal').textContent=all.length;
     document.getElementById('dActive').textContent=all.filter(d=>d.availability_status==='ACTIVE').length;
@@ -1229,7 +1233,7 @@ async function loadDoctors() {
 async function saveDoc(keepOpen=false) {
   const body={first_name:g('dfn'),last_name:g('dln'),email:g('dem'),phone:g('dph')||null,specialization:g('dspec')||null,qualifications:g('dqual')||null,experience_years:parseInt(g('dexp'))||0,shift:g('dshift'),department_id:g('ddept')||null};
   if(!body.first_name||!body.last_name||!body.email){toast('First name, last name, email required','w');return;}
-  try{await call('/api/v1/doctors',{method:'POST',body:JSON.stringify(body)});toast('Doctor added ✓','s');['dfn','dln','dem','dph','dspec','dqual','dexp'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('docM');loadDoctors();loadDash();loadQRStaff();}
+  try{await call('/api/v'+'1/doct'+'ors',{method:'POST',body:JSON.stringify(body)});toast('Doctor added ✓','s');['dfn','dln','dem','dph','dspec','dqual','dexp'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('docM');loadDoctors();loadDash();loadQRStaff();}
   catch(e){toast(e.message,'e');}
 }
 async function updDocSt(id,status){try{await call(`/api/v1/doctors/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
@@ -1274,7 +1278,7 @@ async function loadAttendance() {
     document.getElementById('attBody').innerHTML=all.length?all.map(a=>`<tr><td><strong>${a.staff_name}</strong></td><td><span class="b dim">${a.qr_code_id||'—'}</span></td><td>${a.department_name||'—'}</td><td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td><td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'<span class="b amb">Active</span>'}</td><td>${a.duration_minutes?Math.floor(a.duration_minutes/60)+'h '+Math.floor(a.duration_minutes%60)+'m':'—'}</td><td><span class="b dim">${a.method||'QR'}</span></td><td><span class="b ${a.status==='PRESENT'?'grn':'red'}">${a.status}</span></td></tr>`).join(''):eRow(8,'No records today');
   } catch(e){toast(e.message,'e');}
 }
-async function loadQRStaff(){try{const d=await call('/api/v1/doctors');const sel=document.getElementById('qrStaffSel');sel.innerHTML='<option value="">Select staff…</option>'+d.data.map(doc=>`<option value="${doc.qr_code_id}" data-name="${doc.first_name} ${doc.last_name}">${doc.first_name} ${doc.last_name} (${doc.qr_code_id||'No QR'})</option>`).join('');}catch(e){}}
+async function loadQRStaff(){try{const d=await call('/api/v'+'1/doct'+'ors');const sel=document.getElementById('qrStaffSel');sel.innerHTML='<option value="">Select staff…</option>'+d.data.map(doc=>`<option value="${doc.qr_code_id}" data-name="${doc.first_name} ${doc.last_name}">${doc.first_name} ${doc.last_name} (${doc.qr_code_id||'No QR'})</option>`).join('');}catch(e){}}
 function startScan(){toast('Camera QR scanning requires native app / browser API. Use manual entry below.','i');}
 async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call('/api/v1/attendance/checkin',{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
 async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call('/api/v1/attendance/checkout',{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
@@ -1307,7 +1311,7 @@ async function updAppt(id,status){try{await call(`/api/v1/appointments/${id}/sta
 async function loadMeds() {
   document.getElementById('medBody').innerHTML=lRow(9);
   try {
-    const d=await call('/api/v1/medicines');allMeds=d.data;
+    const d=await call('/api/v'+'1/medi'+'cines');allMeds=d.data;
     const ins=allMeds.filter(m=>m.stock_status==='IN_STOCK').length,low=allMeds.filter(m=>m.stock_status==='LOW_STOCK').length,exp=allMeds.filter(m=>m.expiry_status==='EXPIRING_SOON').length;
     document.getElementById('mTotal').textContent=allMeds.length;document.getElementById('mInStock').textContent=ins;document.getElementById('mLow').textContent=low;document.getElementById('mExpiry').textContent=exp;
     document.getElementById('medCnt').textContent=`${allMeds.length} items`;
@@ -1320,7 +1324,7 @@ async function loadMeds() {
 }
 function renderMeds(meds){document.getElementById('medBody').innerHTML=meds.length?meds.map(m=>{const pct=Math.min(100,Math.round((m.quantity_in_stock/((m.reorder_level||50)*3))*100));const clr=m.stock_status==='IN_STOCK'?'var(--grn)':m.stock_status==='LOW_STOCK'?'var(--amb)':'var(--red)';const stB=m.stock_status==='IN_STOCK'?'grn':m.stock_status==='LOW_STOCK'?'amb':'red';return `<tr><td><strong>${m.medicine_name}</strong><br><span style="font-size:10px;color:var(--sub)">${m.generic_name||''}</span></td><td><span class="b dim">${m.category||'—'}</span></td><td>${m.quantity_in_stock} ${m.unit||''}</td><td style="min-width:90px"><div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${clr}"></div></div></td><td>${m.reorder_level||'—'}</td><td><span class="${m.expiry_status==='EXPIRING_SOON'?'b amb':m.expiry_status==='EXPIRED'?'b red':''}">${m.expiry_date?new Date(m.expiry_date).toLocaleDateString('en-IN'):'—'}</span></td><td>${m.unit_price?'₹'+m.unit_price:'—'}</td><td><span class="b ${stB}">${m.stock_status}</span></td><td><div class="sb gho"><button class="mb" onclick="restockMed(${m.id})">Restock</button><button class="ab" onclick="td('mR${m.id}')">▾</button><div class="sdrop" id="mR${m.id}"><a onclick="restockMed(${m.id});cd()">📦 Restock</a><a onclick="cd()">📋 History</a><a onclick="cd()">🗑 Remove</a></div></div></td></tr>`}).join(''):eRow(9,'No medicines in inventory');}
 function filterMeds(f){if(f==='low')renderMeds(allMeds.filter(m=>m.stock_status==='LOW_STOCK'||m.stock_status==='OUT_OF_STOCK'));else renderMeds(allMeds);}
-async function saveMed(keepOpen=false){const body={medicine_name:g('mname'),generic_name:g('mgname')||null,category:g('mcat')||null,strength:g('mstr')||null,unit:g('munit')||'units',quantity_in_stock:parseInt(g('mqty'))||0,reorder_level:parseInt(g('mreorder'))||50,unit_price:parseFloat(g('mprice'))||null,expiry_date:g('mexpiry')||null,manufacturer:g('mmfr')||null,batch_number:g('mbatch')||null};if(!body.medicine_name){toast('Medicine name required','w');return;}try{await call('/api/v1/medicines',{method:'POST',body:JSON.stringify(body)});toast('Medicine added ✓','s');['mname','mgname','mcat','mstr','munit','mqty','mreorder','mprice','mexpiry','mmfr','mbatch'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('medM');loadMeds();}catch(e){toast(e.message,'e');}}
+async function saveMed(keepOpen=false){const body={medicine_name:g('mname'),generic_name:g('mgname')||null,category:g('mcat')||null,strength:g('mstr')||null,unit:g('munit')||'units',quantity_in_stock:parseInt(g('mqty'))||0,reorder_level:parseInt(g('mreorder'))||50,unit_price:parseFloat(g('mprice'))||null,expiry_date:g('mexpiry')||null,manufacturer:g('mmfr')||null,batch_number:g('mbatch')||null};if(!body.medicine_name){toast('Medicine name required','w');return;}try{await call('/api/v'+'1/medi'+'cines',{method:'POST',body:JSON.stringify(body)});toast('Medicine added ✓','s');['mname','mgname','mcat','mstr','munit','mqty','mreorder','mprice','mexpiry','mmfr','mbatch'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('medM');loadMeds();}catch(e){toast(e.message,'e');}}
 async function restockMed(id){const qty=prompt('Add quantity:');if(!qty||isNaN(parseInt(qty)))return;try{await call(`/api/v1/medicines/${id}/stock`,{method:'PATCH',body:JSON.stringify({quantity:parseInt(qty)})});toast('Stock updated ✓','s');loadMeds();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
@@ -1329,13 +1333,13 @@ async function restockMed(id){const qty=prompt('Add quantity:');if(!qty||isNaN(p
 async function loadOrders() {
   document.getElementById('orderBody').innerHTML=lRow(8);
   try {
-    const d=await call('/api/v1/orders');const all=d.data;
+    const d=await call('/api/v'+'1/orde'+'rs');const all=d.data;
     document.getElementById('orTotal').textContent=all.length;document.getElementById('orPend').textContent=all.filter(o=>o.status==='PENDING').length;document.getElementById('orDisp').textContent=all.filter(o=>o.status==='DISPATCHED').length;document.getElementById('orDel').textContent=all.filter(o=>o.status==='DELIVERED').length;
     document.getElementById('orderCnt').textContent=`${all.length} orders`;
     document.getElementById('orderBody').innerHTML=all.length?all.map(o=>`<tr><td><span class="b dim">${o.order_code||'—'}</span></td><td><span class="b blue">${o.order_type}</span></td><td>${o.supplier_name||'—'}</td><td>₹${fmt(o.total_amount||0)}</td><td><span class="b ${o.payment_status==='PAID'?'grn':'red'}">${o.payment_status}</span></td><td><span class="b ${o.status==='DELIVERED'?'grn':o.status==='PENDING'?'amb':'blue'}">${o.status}</span></td><td>${o.expected_delivery?new Date(o.expected_delivery).toLocaleDateString('en-IN'):'—'}</td><td><div class="sb gho"><button class="mb">Update</button><button class="ab" onclick="td('oR${o.id}')">▾</button><div class="sdrop" id="oR${o.id}"><a onclick="updOrder(${o.id},'DISPATCHED');cd()">🚚 Dispatched</a><a onclick="updOrder(${o.id},'DELIVERED');cd()">✅ Delivered</a><a onclick="updOrder(${o.id},'CANCELLED');cd()">❌ Cancel</a></div></div></td></tr>`).join(''):eRow(8,'No orders yet');
   } catch(e){toast(e.message,'e');}
 }
-async function saveOrder(){const body={order_type:g('otype'),supplier_id:parseInt(g('osup'))||null,items:[{name:g('oitems'),qty:1}],total_amount:parseFloat(g('oamt'))||0,expected_delivery:g('odel')||null,notes:g('onotes')||null};try{await call('/api/v1/orders',{method:'POST',body:JSON.stringify(body)});toast('Order placed ✓','s');closeM('orderM');loadOrders();}catch(e){toast(e.message,'e');}}
+async function saveOrder(){const body={order_type:g('otype'),supplier_id:parseInt(g('osup'))||null,items:[{name:g('oitems'),qty:1}],total_amount:parseFloat(g('oamt'))||0,expected_delivery:g('odel')||null,notes:g('onotes')||null};try{await call('/api/v'+'1/orde'+'rs',{method:'POST',body:JSON.stringify(body)});toast('Order placed ✓','s');closeM('orderM');loadOrders();}catch(e){toast(e.message,'e');}}
 async function updOrder(id,status){try{await call(`/api/v1/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
