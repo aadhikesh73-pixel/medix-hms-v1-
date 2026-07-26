@@ -48,15 +48,22 @@ function allowedOrigins() {
 // Covers: XSS, Clickjacking, MIME sniffing, HSTS,
 //         Content-Security-Policy, CORP, COOP
 // ─────────────────────────────────────────
+// Nonce generated once per request — reused consistently in CSP header and HTML
+const crypto = require('crypto');
+app.use((req, res, next) => {
+    res.locals.nonce = crypto.randomBytes(16).toString('base64');
+    next();
+});
+
 app.use(helmet({
     contentSecurityPolicy: {
         useDefaults: false,
         directives: {
             defaultSrc:     ["'self'"],
             // Nonce-based CSP — no unsafe-inline needed
-            scriptSrc: ["'self'", (req, res) => `'nonce-${getNonce(req, res)}'`, "cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "cdnjs.cloudflare.com"],
             scriptSrcAttr:  ["'none'"],
-            styleSrc: ["'self'", (req, res) => `'nonce-${getNonce(req, res)}'`],
+            styleSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
             imgSrc:         ["'self'", "data:"],
             connectSrc:     ["'self'"],
             frameSrc:       ["'none'"],
@@ -480,7 +487,7 @@ app.get('/', (req, res) => {
     const fs = require('fs');
     const htmlPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
-    const nonce = getNonce(req, res); // Same nonce as CSP header
+    const nonce = res.locals.nonce; // Same nonce set by middleware
     // Inject nonce into all script and style tags
     html = html.replace(/<script(?!.*nonce)/g, `<script nonce="${nonce}"`);
     html = html.replace(/<style(?!.*nonce)/g, `<style nonce="${nonce}"`);
@@ -497,7 +504,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         // CSP: connect-src uses 'self' only — never list internal URLs
         // Listing subdomains in CSP exposes full infrastructure to attackers
-        const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
+        const nonce = res.locals.nonce; // Set by middleware — always defined
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
             `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com; ` +
