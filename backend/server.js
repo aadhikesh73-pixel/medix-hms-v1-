@@ -572,29 +572,28 @@ app.post('/api/auth/login',
             const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
             if (turnstileResult === true) {
                 // Turnstile passed — skip word CAPTCHA
-            } else if (turnstileResult === null) {
-                // Turnstile not configured — use word CAPTCHA fallback
+            } else {
+                // Turnstile not configured or failed — use word CAPTCHA
                 if (captcha_id && captcha_id.length > 0) {
-                // Full server-side validation when captcha_id provided
-                const captchaData = captchaStore.get(captcha_id);
-                if (!captchaData) {
-                    // Server restarted — captchaStore wiped. Ask client to refresh captcha.
-                    return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
-                }
-                if (Date.now() > captchaData.expires) {
-                    captchaStore.delete(captcha_id);
-                    return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
-                }
-                if (String(captcha_answer).toUpperCase().trim() !== String(captchaData.answer).toUpperCase()) {
-                    captchaStore.delete(captcha_id);
+                    // Full server-side validation when captcha_id provided
+                    const captchaData = captchaStore.get(captcha_id);
+                    if (!captchaData) {
+                        return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
+                    }
+                    if (Date.now() > captchaData.expires) {
+                        captchaStore.delete(captcha_id);
+                        return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
+                    }
+                    if (String(captcha_answer).toUpperCase().trim() !== String(captchaData.answer).toUpperCase()) {
+                        captchaStore.delete(captcha_id);
+                        return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
+                    }
+                    captchaStore.delete(captcha_id); // One-time use — consumed after correct answer
+                } else if (!captcha_answer || String(captcha_answer).trim() === '') {
                     return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
                 }
-                captchaStore.delete(captcha_id); // One-time use
-            } else if (captcha_answer === undefined || captcha_answer === null || captcha_answer === '') {
-                // No CAPTCHA at all — reject
-                return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
+                // captcha_id empty but answer provided = client-side fallback mode (accepted)
             }
-            // If captcha_id empty but answer provided = client-side fallback mode (allowed)
 
             // Manual backup rate limiting (works even if express-rate-limit fails)
             const attemptKey = email?.toLowerCase()?.trim() || 'unknown';
@@ -641,9 +640,8 @@ app.post('/api/auth/login',
                 user: { email: user.email, role: user.role, username: user.username }
             });
         } catch (e) {
-            console.error('Login error FULL:', e.stack || e.message);
-            return res.status(500).json({ error: e.message, debug: true });
-            res.status(500).json({ error: 'Login failed' });
+            console.error('Login error:', e.message);
+            res.status(500).json({ error: 'Internal server error' });
         }
     }
 );
