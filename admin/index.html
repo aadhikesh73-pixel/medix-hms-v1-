@@ -1238,7 +1238,7 @@ async function saveDoc(keepOpen=false) {
   try{await call('/api/v'+'1/doct'+'ors',{method:'POST',body:JSON.stringify(body)});toast('Doctor added ✓','s');['dfn','dln','dem','dph','dspec','dqual','dexp'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('docM');loadDoctors();loadDash();loadQRStaff();}
   catch(e){toast(e.message,'e');}
 }
-async function updDocSt(id,status){try{await call(`/api/v1/doctors/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
+async function updDocSt(id,status){try{await call((_cfg.doctors||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // BEDS
@@ -1263,7 +1263,7 @@ function renderBeds(beds) {
 }
 function bedCell(b){const cls=b.bed_type==='ICU'?'icu':b.status==='FREE'?'free':b.status==='OCCUPIED'?'occupied':b.status==='CLEANING'?'cleaning':'maintenance';const ic=b.bed_type==='ICU'?'🏥':b.status==='FREE'?'✅':b.status==='OCCUPIED'?'🔴':'🧹';const tip=b.patient_name?`${b.patient_name} (${b.patient_id_number})`:b.status;return `<div class="bed-cell ${cls}" onclick="toggleBed(${b.id},'${b.status}')" title="${tip}"><span>${ic}</span><span class="bn">${b.bed_number}</span><span>${b.status}</span></div>`;}
 function filterBeds(f){if(f==='all')renderBeds(allBeds);else if(f==='ICU')renderBeds(allBeds.filter(b=>b.bed_type==='ICU'));else renderBeds(allBeds.filter(b=>b.status===f));}
-async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{await call(`/api/v1/beds/${id}`,{method:'PATCH',body:JSON.stringify({status:ns})});toast(`Bed → ${ns}`,'s');loadBeds();}catch(e){toast(e.message,'e');}}
+async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{await call((_cfg.beds||'')+`/${id}`,{method:'PATCH',body:JSON.stringify({status:ns})});toast(`Bed → ${ns}`,'s');loadBeds();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // ATTENDANCE
@@ -1305,7 +1305,7 @@ async function loadAppts() {
   } catch(e){toast(e.message,'e');}
 }
 async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call(_cfg.appointments||'',{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
-async function updAppt(id,status){try{await call(`/api/v1/appointments/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
+async function updAppt(id,status){try{await call((_cfg.appointments||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // PHARMACY
@@ -1342,7 +1342,7 @@ async function loadOrders() {
   } catch(e){toast(e.message,'e');}
 }
 async function saveOrder(){const body={order_type:g('otype'),supplier_id:parseInt(g('osup'))||null,items:[{name:g('oitems'),qty:1}],total_amount:parseFloat(g('oamt'))||0,expected_delivery:g('odel')||null,notes:g('onotes')||null};try{await call('/api/v'+'1/orde'+'rs',{method:'POST',body:JSON.stringify(body)});toast('Order placed ✓','s');closeM('orderM');loadOrders();}catch(e){toast(e.message,'e');}}
-async function updOrder(id,status){try{await call(`/api/v1/orders/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
+async function updOrder(id,status){try{await call((_cfg.orders||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // FINANCE
@@ -1364,7 +1364,7 @@ async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txse
 // ══════════════════════════════════════════
 function toggleNotif(){document.getElementById('np').classList.toggle('on');if(document.getElementById('np').classList.contains('on'))loadNotifs();}
 async function loadNotifs(){try{const d=await call(_cfg.notifications||'');const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
-async function markRead(id){try{await call(`/api/v1/notifications/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
+async function markRead(id){try{await call((_cfg.notifications||'')+`/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
 async function markAllRead(){try{await call(_cfg.readAll||'',{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
@@ -1456,7 +1456,7 @@ async function viewPatDetail(id) {
   openM('patDetailM');
   document.getElementById('patDetailBody').innerHTML = '<div style="text-align:center;padding:20px"><div class="spin"></div></div>';
   try {
-    const d = await call('/api/v1/patients/' + id);
+    const d = await call((_cfg.patients||'')+'/'+ id);
     const p = d.data;
     document.getElementById('patDetailBody').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -1491,7 +1491,7 @@ async function editPat(id) {
   openM('patEditM');
   document.getElementById('patEditId').textContent = '— Loading...';
   try {
-    const d = await call('/api/v1/patients/' + id);
+    const d = await call((_cfg.patients||'')+'/'+ id);
     const p = d.data;
     document.getElementById('peId').value    = p.id;
     document.getElementById('patEditId').textContent = `— ${p.patient_id_number}`;
@@ -1524,7 +1524,7 @@ async function savePatEdit() {
   };
   if (!body.first_name || !body.last_name || !body.phone) { toast('First name, last name, phone required','w'); return; }
   try {
-    await call('/api/v1/patients/' + id, { method:'PUT', body: JSON.stringify(body) });
+    await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
     toast('Patient updated ✓','s');
     closeM('patEditM');
     loadPatients();
@@ -1534,15 +1534,15 @@ async function savePatEdit() {
 
 async function chgPatStatus(id, status) {
   try {
-    await call('/api/v1/patients/' + id, { method:'PUT', body: JSON.stringify({ first_name:'_', last_name:'_', phone:'0000000000', admission_status: status }) });
+    await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify({ first_name:'_', last_name:'_', phone:'0000000000', admission_status: status }) });
     toast('Patient status → ' + status,'s');
     loadPatients();
   } catch(e) {
     // Fallback: fetch full patient first then update
     try {
-      const d = await call('/api/v1/patients/' + id);
+      const d = await call((_cfg.patients||'')+'/'+ id);
       const p = d.data;
-      await call('/api/v1/patients/' + id, { method:'PUT', body: JSON.stringify({...p, admission_status: status}) });
+      await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify({...p, admission_status: status}) });
       toast('Status → ' + status,'s');
       loadPatients();
     } catch(e2) { toast(e2.message,'e'); }
@@ -1552,7 +1552,7 @@ async function chgPatStatus(id, status) {
 async function deactPat(id) {
   if (!confirm('Deactivate this patient? They will be hidden from active lists.')) return;
   try {
-    await call('/api/v1/patients/' + id, { method:'DELETE' });
+    await call((_cfg.patients||'')+'/'+ id, { method:'DELETE' });
     toast('Patient deactivated','s');
     loadPatients();
   } catch(e) { toast(e.message,'e'); }
@@ -1565,7 +1565,7 @@ async function viewDocDetail(id) {
   openM('docDetailM');
   document.getElementById('docDetailBody').innerHTML = '<div style="text-align:center;padding:20px"><div class="spin"></div></div>';
   try {
-    const d = await call('/api/v1/doctors/' + id);
+    const d = await call((_cfg.doctors||'')+'/'+ id);
     const doc = d.data;
     document.getElementById('docDetailBody').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -1594,7 +1594,7 @@ async function editDoc(id) {
   openM('docEditM');
   document.getElementById('docEditId').textContent = '— Loading...';
   try {
-    const d = await call('/api/v1/doctors/' + id);
+    const d = await call((_cfg.doctors||'')+'/'+ id);
     const doc = d.data;
     document.getElementById('deId').value     = doc.id;
     document.getElementById('docEditId').textContent = `— ${doc.qr_code_id||'DR-'+doc.id}`;
@@ -1634,7 +1634,7 @@ async function saveDocEdit() {
   };
   if (!body.first_name || !body.last_name || !body.email) { toast('First name, last name, email required','w'); return; }
   try {
-    await call('/api/v1/doctors/' + id, { method:'PUT', body: JSON.stringify(body) });
+    await call((_cfg.doctors||'')+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
     toast('Doctor updated ✓','s');
     closeM('docEditM');
     loadDoctors();
@@ -1645,7 +1645,7 @@ async function saveDocEdit() {
 async function deactDoc(id) {
   if (!confirm('Remove this doctor from active staff?')) return;
   try {
-    await call('/api/v1/doctors/' + id, { method:'DELETE' });
+    await call((_cfg.doctors||'')+'/'+ id, { method:'DELETE' });
     toast('Doctor removed','s');
     loadDoctors();
   } catch(e) { toast(e.message,'e'); }
