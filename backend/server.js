@@ -50,15 +50,20 @@ function allowedOrigins() {
 // ─────────────────────────────────────────
 app.use(helmet({
     contentSecurityPolicy: {
+        useDefaults: false,
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
-            styleSrc:       ["'self'", "'unsafe-inline'"],
-            imgSrc:         ["'self'", "data:", "https:"],
-            connectSrc:     ["'self'"], // SECURITY: Never list internal URLs in CSP header
+            // Nonce-based CSP — no unsafe-inline needed
+            scriptSrc:      ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "cdnjs.cloudflare.com"],
+            scriptSrcAttr:  ["'none'"],
+            styleSrc:       ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
+            imgSrc:         ["'self'", "data:"],
+            connectSrc:     ["'self'"],
             frameSrc:       ["'none'"],
+            frameAncestors: ["'none'"],
             objectSrc:      ["'none'"],
-            upgradeInsecureRequests: [],
+            baseUri:        ["'self'"],
+            formAction:     ["'self'"],
         },
     },
     crossOriginEmbedderPolicy: false,
