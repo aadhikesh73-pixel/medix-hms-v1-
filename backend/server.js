@@ -54,9 +54,9 @@ app.use(helmet({
         directives: {
             defaultSrc:     ["'self'"],
             // Nonce-based CSP — no unsafe-inline needed
-            scriptSrc:      ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "cdnjs.cloudflare.com"],
+            scriptSrc: ["'self'", (req, res) => `'nonce-${getNonce(req, res)}'`, "cdnjs.cloudflare.com"],
             scriptSrcAttr:  ["'none'"],
-            styleSrc:       ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
+            styleSrc: ["'self'", (req, res) => `'nonce-${getNonce(req, res)}'`],
             imgSrc:         ["'self'", "data:"],
             connectSrc:     ["'self'"],
             frameSrc:       ["'none'"],
@@ -471,10 +471,6 @@ app.get('/api/auth/captcha', (req, res) => {
 // ── NONCE-BASED CSP — removes unsafe-inline requirement ─────
 // A fresh cryptographic nonce is generated per request
 // Only scripts/styles with this nonce attribute are executed
-app.use((req, res, next) => {
-    res.locals.nonce = require('crypto').randomBytes(16).toString('base64');
-    next();
-});
 
 // ── SERVE ADMIN DASHBOARD with security headers ──────────────────
 // V-003: Admin served from same origin → API URL is relative ('') in frontend
@@ -484,7 +480,7 @@ app.get('/', (req, res) => {
     const fs = require('fs');
     const htmlPath = path.join(__dirname, 'public', 'index.html');
     let html = fs.readFileSync(htmlPath, 'utf8');
-    const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
+    const nonce = getNonce(req, res); // Same nonce as CSP header
     // Inject nonce into all script and style tags
     html = html.replace(/<script(?!.*nonce)/g, `<script nonce="${nonce}"`);
     html = html.replace(/<style(?!.*nonce)/g, `<style nonce="${nonce}"`);
