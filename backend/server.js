@@ -87,7 +87,10 @@ app.use(cors({
     },
     methods:            ['GET','POST','OPTIONS'], // Restrict: PUT/PATCH/DELETE only from same origin
     allowedHeaders:     ['Content-Type','Authorization','X-Request-ID'],
-    exposedHeaders:     ['X-RateLimit-Limit','X-RateLimit-Remaining'],
+    exposedHeaders:     [
+        'X-RateLimit-Limit','X-RateLimit-Remaining','X-RateLimit-Reset',
+        'RateLimit-Limit','RateLimit-Remaining','RateLimit-Reset','RateLimit-Policy'
+    ],
     credentials:        true,
     maxAge:             86400,
 }));
@@ -370,6 +373,8 @@ app.use((req, res, next) => {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.setHeader('X-Request-ID', require('crypto').randomBytes(16).toString('hex'));
+    // Expose rate limit policy so clients can self-throttle
+    res.setHeader('RateLimit-Policy', '300;w=900');
     // Covers: Sensitive Data Exposure via headers
     res.removeHeader('X-Powered-By');
     res.removeHeader('Server');
@@ -457,9 +462,31 @@ app.get('/api/auth/captcha', (req, res) => {
 });
 
 
+
+// ── NONCE-BASED CSP — removes unsafe-inline requirement ─────
+// A fresh cryptographic nonce is generated per request
+// Only scripts/styles with this nonce attribute are executed
+app.use((req, res, next) => {
+    res.locals.nonce = require('crypto').randomBytes(16).toString('base64');
+    next();
+});
+
 // ── SERVE ADMIN DASHBOARD with security headers ──────────────────
 // V-003: Admin served from same origin → API URL is relative ('') in frontend
 // V-005: All security headers set here for every HTML/JS/CSS response
+// Serve index.html dynamically — inject nonce into script/style tags
+app.get('/', (req, res) => {
+    const fs = require('fs');
+    const htmlPath = path.join(__dirname, 'public', 'index.html');
+    let html = fs.readFileSync(htmlPath, 'utf8');
+    const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
+    // Inject nonce into all script and style tags
+    html = html.replace(/<script(?!.*nonce)/g, `<script nonce="${nonce}"`);
+    html = html.replace(/<style(?!.*nonce)/g, `<style nonce="${nonce}"`);
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
     setHeaders: (res, filePath) => {
         res.setHeader('X-Frame-Options', 'DENY');
@@ -469,15 +496,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         // CSP: connect-src uses 'self' only — never list internal URLs
         // Listing subdomains in CSP exposes full infrastructure to attackers
+        const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
         res.setHeader('Content-Security-Policy',
-            "default-src 'self'; " +
-            "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data:; " +
-            "connect-src 'self'; " +
-            "frame-ancestors 'none'; " +
-            "object-src 'none'; " +
-            "base-uri 'self';"
+            `default-src 'self'; ` +
+            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com; ` +
+            `style-src 'self' 'nonce-${nonce}'; ` +
+            `img-src 'self' data:; ` +
+            `connect-src 'self'; ` +
+            `frame-ancestors 'none'; ` +
+            `object-src 'none'; ` +
+            `base-uri 'self';`
         );
         if (filePath.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -485,9 +513,6 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
 }));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 // Catch /api/ without version — prevents 500, returns clean 404
 app.all('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
@@ -656,6 +681,36 @@ app.get('/api/v1/hospitals', async (req, res) => {
 // ─────────────────────────────────────────
 // OVERVIEW
 // ─────────────────────────────────────────
+
+// ── POST-AUTH API MANIFEST ───────────────────────────────────
+// API paths are served ONLY after valid JWT — not in HTML source
+// This prevents unauthenticated API surface enumeration
+app.get('/api/auth/config', auth, (req, res) => {
+    res.json({
+        v: '1',
+        endpoints: {
+            overview:      '/api/v1/overview',
+            patients:      '/api/v1/patients',
+            doctors:       '/api/v1/doctors',
+            beds:          '/api/v1/beds',
+            appointments:  '/api/v1/appointments',
+            attendance:    '/api/v1/attendance',
+            checkin:       '/api/v1/attendance/checkin',
+            checkout:      '/api/v1/attendance/checkout',
+            medicines:     '/api/v1/medicines',
+            orders:        '/api/v1/orders',
+            suppliers:     '/api/v1/suppliers',
+            departments:   '/api/v1/departments',
+            notifications: '/api/v1/notifications',
+            readAll:       '/api/v1/notifications/read-all',
+            finOverview:   '/api/v1/finance/overview',
+            finSector:     '/api/v1/finance/by-sector',
+            finTrend:      '/api/v1/finance/trend',
+            finTxn:        '/api/v1/finance/transaction',
+        }
+    });
+});
+
 app.get('/api/v1/overview', auth, async (req, res) => {
     try {
         const r = await q(`

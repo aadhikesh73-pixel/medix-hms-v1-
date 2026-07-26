@@ -6,7 +6,7 @@
 <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏥</text></svg>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MediX HMS v4 — Admin</title>
+<title>MediX HMS — Admin</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -318,7 +318,7 @@ border-radius:9px;padding:12px;margin-top:12px;font-size:13px;color:var(--grn)}
     <div class="llogo">M</div>
     <div>
       <div class="lname">Medi<span>X</span> HMS</div>
-      <div style="font-size:10px;color:var(--sub)">Healthcare Management System v4</div>
+      <div style="font-size:10px;color:var(--sub)">Healthcare Management System</div>
     </div>
   </div>
   <div class="ltitle">Sign in to Admin</div>
@@ -1092,6 +1092,7 @@ sessionStorage.setItem('mx_user',JSON.stringify(user)); // Only non-sensitive us
 }
 
 function showApp() {
+  loadApiConfig(); // Load API paths after auth
   document.getElementById('ls').style.display='none';
   document.getElementById('app').classList.add('show');
   if(user){
@@ -1162,7 +1163,7 @@ function mkChart(id,type,labels,datasets,opts={}) {
 // ══════════════════════════════════════════
 async function loadDash() {
   try {
-    const [ov,pts,docs,trend]=await Promise.all([call('/api/v1/overview'),call('/api/v'+'1/pati'+'ents'),call('/api/v'+'1/doct'+'ors'),call('/api/v1/finance/trend')]);
+    const [ov,pts,docs,trend]=await Promise.all([call(_cfg.overview||'/api/v1/overview'),call('/api/v'+'1/pati'+'ents'),call('/api/v'+'1/doct'+'ors'),call(_cfg.finTrend||'/api/v1/finance/trend')]);
     const o=ov.data;
     document.getElementById('ov1').textContent=o.total_patients||0;document.getElementById('ov1s').textContent=`${o.in_patients||0} admitted`;
     document.getElementById('ov2').textContent=o.in_patients||0;document.getElementById('ov2s').textContent=`${o.icu_patients||0} in ICU`;
@@ -1243,7 +1244,7 @@ async function updDocSt(id,status){try{await call(`/api/v1/doctors/${id}/status`
 // ══════════════════════════════════════════
 async function loadBeds() {
   try {
-    const d=await call('/api/v1/beds');allBeds=d.data;
+    const d=await call(_cfg.beds||'/api/v1/beds');allBeds=d.data;
     const free=allBeds.filter(b=>b.status==='FREE').length,occ=allBeds.filter(b=>b.status==='OCCUPIED').length,cln=allBeds.filter(b=>b.status==='CLEANING').length,icu=allBeds.filter(b=>b.bed_type==='ICU').length;
     document.getElementById('bTotal').textContent=allBeds.length;document.getElementById('bFree').textContent=free;document.getElementById('bOcc').textContent=occ;document.getElementById('bClean').textContent=cln;document.getElementById('bICU').textContent=icu;
     mkChart('bedChartFull','doughnut',['Free','Occupied','Cleaning','Maintenance'],[{data:[free,occ,cln,allBeds.filter(b=>b.status==='MAINTENANCE').length],backgroundColor:['rgba(34,212,139,.8)','rgba(240,82,82,.8)','rgba(245,166,35,.8)','rgba(255,255,255,.15)'],borderWidth:0}]);
@@ -1269,7 +1270,7 @@ async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{awa
 async function loadAttendance() {
   document.getElementById('attBody').innerHTML=lRow(8);
   try {
-    const d=await call('/api/v1/attendance');const all=d.data;
+    const d=await call(_cfg.attendance||'/api/v1/attendance');const all=d.data;
     document.getElementById('attP').textContent=all.filter(a=>a.status==='PRESENT').length;
     document.getElementById('attA').textContent='—';
     document.getElementById('attL').textContent=all.filter(a=>{const h=a.check_in?new Date(a.check_in).getHours():null;return h&&h>9;}).length;
@@ -1280,8 +1281,8 @@ async function loadAttendance() {
 }
 async function loadQRStaff(){try{const d=await call('/api/v'+'1/doct'+'ors');const sel=document.getElementById('qrStaffSel');sel.innerHTML='<option value="">Select staff…</option>'+d.data.map(doc=>`<option value="${doc.qr_code_id}" data-name="${doc.first_name} ${doc.last_name}">${doc.first_name} ${doc.last_name} (${doc.qr_code_id||'No QR'})</option>`).join('');}catch(e){}}
 function startScan(){toast('Camera QR scanning requires native app / browser API. Use manual entry below.','i');}
-async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call('/api/v1/attendance/checkin',{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
-async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call('/api/v1/attendance/checkout',{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
+async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call(_cfg.checkin||'/api/v1/attendance/checkin',{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
+async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call(_cfg.checkout||'/api/v1/attendance/checkout',{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
 function genQR(){const sel=document.getElementById('qrStaffSel');const qrId=sel.value;const name=sel.selectedOptions[0]?.getAttribute('data-name');if(!qrId){toast('Select a staff member','w');return;}const container=document.getElementById('qrContainer');container.innerHTML='';container.style.display='block';new QRCode(container,{text:qrId,width:150,height:150,colorDark:'#000',colorLight:'#fff'});const nm=document.getElementById('qrStaffName');nm.style.display='block';nm.textContent=`${name} · ${qrId}`;}
 function gQRDoc(qrId,name){if(!qrId){toast('No QR ID for this doctor','w');return;}pg('attendance',document.querySelectorAll('.nav')[4]);setTimeout(()=>{const sel=document.getElementById('qrStaffSel');for(let o of sel.options){if(o.value===qrId){sel.value=qrId;break;}}genQR();},300);}
 function printQR(){toast('Connect to printer API for production printing','i');}
@@ -1292,7 +1293,7 @@ function printQR(){toast('Connect to printer API for production printing','i');}
 async function loadAppts() {
   document.getElementById('apptBody').innerHTML=lRow(8);
   try {
-    const d=await call('/api/v1/appointments');const all=d.data;
+    const d=await call(_cfg.appointments||'/api/v1/appointments');const all=d.data;
     const comp=all.filter(a=>a.status==='COMPLETED').length,sched=all.filter(a=>a.status==='SCHEDULED').length,canc=all.filter(a=>a.status==='CANCELLED').length;
     document.getElementById('apTotal').textContent=all.length;document.getElementById('apComp').textContent=comp;document.getElementById('apSched').textContent=sched;document.getElementById('apCanc').textContent=canc;
     document.getElementById('apptCnt').textContent=`${all.length} appointments`;
@@ -1302,7 +1303,7 @@ async function loadAppts() {
     document.getElementById('apptBody').innerHTML=all.length?all.map(a=>`<tr><td><span class="b dim">${a.appointment_code||'—'}</span></td><td><strong>${a.patient_name||'—'}</strong></td><td>${a.doctor_name||'—'}</td><td>${a.appointment_date?new Date(a.appointment_date).toLocaleDateString('en-IN'):'—'}</td><td>${a.appointment_time||'—'}</td><td><span class="b blue">${a.appointment_type}</span></td><td><span class="b ${a.status==='COMPLETED'?'grn':a.status==='CANCELLED'?'red':'blue'}">${a.status}</span></td><td><div class="sb gho"><button class="mb">Manage</button><button class="ab" onclick="td('aR${a.id}')">▾</button><div class="sdrop" id="aR${a.id}"><a onclick="updAppt(${a.id},'COMPLETED');cd()">✅ Complete</a><a onclick="updAppt(${a.id},'CANCELLED');cd()">❌ Cancel</a></div></div></td></tr>`).join(''):eRow(8,'No appointments');
   } catch(e){toast(e.message,'e');}
 }
-async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call('/api/v1/appointments',{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
+async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call(_cfg.appointments||'/api/v1/appointments',{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
 async function updAppt(id,status){try{await call(`/api/v1/appointments/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
@@ -1347,7 +1348,7 @@ async function updOrder(id,status){try{await call(`/api/v1/orders/${id}/status`,
 // ══════════════════════════════════════════
 async function loadFinance() {
   try {
-    const [ov,sect,trend]=await Promise.all([call('/api/v1/finance/overview'),call('/api/v1/finance/by-sector'),call('/api/v1/finance/trend')]);
+    const [ov,sect,trend]=await Promise.all([call(_cfg.finOverview||'/api/v1/finance/overview'),call(_cfg.finSector||'/api/v1/finance/by-sector'),call(_cfg.finTrend||'/api/v1/finance/trend')]);
     const o=ov.data;
     const rev=parseFloat(o.total_revenue)||0,exp=parseFloat(o.total_expense)||0,net=parseFloat(o.net_profit)||0;
     document.getElementById('finRev').textContent=`₹${fmt(rev)}`;document.getElementById('finExp').textContent=`₹${fmt(exp)}`;document.getElementById('finNet').textContent=`₹${fmt(net)}`;document.getElementById('finPct').textContent=rev>0?`${Math.round((net/rev)*100)}%`:'—';
@@ -1355,20 +1356,20 @@ async function loadFinance() {
     if(sect.data&&sect.data.length){mkChart('finSectorChart','doughnut',sect.data.map(s=>s.sector||'Other'),[{data:sect.data.map(s=>s.revenue),backgroundColor:['rgba(34,212,139,.8)','rgba(59,158,255,.8)','rgba(167,139,250,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.8)','rgba(244,114,182,.8)'],borderWidth:0}]);document.getElementById('finBody').innerHTML=sect.data.map(s=>{const n=parseFloat(s.revenue)-parseFloat(s.expense);const share=rev>0?Math.round((parseFloat(s.revenue)/rev)*100):0;return `<tr><td><strong>${s.sector||'—'}</strong></td><td style="color:var(--grn)">₹${fmt(s.revenue)}</td><td style="color:var(--red)">₹${fmt(s.expense)}</td><td style="color:${n>=0?'var(--grn)':'var(--red)'}">₹${fmt(Math.abs(n))}</td><td><div class="prog-bar"><div class="prog-fill" style="width:${share}%;background:var(--grn)"></div></div>${share}%</td></tr>`;}).join('');}
   } catch(e){toast(e.message,'e');}
 }
-async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txsector'),amount:parseFloat(g('txamt')),category:g('txcat')||null,description:g('txdesc')||null};if(!body.amount){toast('Amount required','w');return;}try{await call('/api/v1/finance/transaction',{method:'POST',body:JSON.stringify(body)});toast('Transaction saved ✓','s');closeM('txnM');loadFinance();}catch(e){toast(e.message,'e');}}
+async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txsector'),amount:parseFloat(g('txamt')),category:g('txcat')||null,description:g('txdesc')||null};if(!body.amount){toast('Amount required','w');return;}try{await call(_cfg.finTxn||'/api/v1/finance/transaction',{method:'POST',body:JSON.stringify(body)});toast('Transaction saved ✓','s');closeM('txnM');loadFinance();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // NOTIFICATIONS
 // ══════════════════════════════════════════
 function toggleNotif(){document.getElementById('np').classList.toggle('on');if(document.getElementById('np').classList.contains('on'))loadNotifs();}
-async function loadNotifs(){try{const d=await call('/api/v1/notifications');const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
+async function loadNotifs(){try{const d=await call(_cfg.notifications||'/api/v1/notifications');const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
 async function markRead(id){try{await call(`/api/v1/notifications/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
-async function markAllRead(){try{await call('/api/v1/notifications/read-all',{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
+async function markAllRead(){try{await call(_cfg.readAll||'/api/v1/notifications/read-all',{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // DEPARTMENTS
 // ══════════════════════════════════════════
-async function loadDepts(){try{const d=await call('/api/v1/departments');const sel=document.getElementById('ddept');sel.innerHTML='<option value="">Select…</option>'+d.data.map(dep=>`<option value="${dep.id}">${dep.name}</option>`).join('');loadQRStaff();}catch(e){}}
+async function loadDepts(){try{const d=await call(_cfg.departments||'/api/v1/departments');const sel=document.getElementById('ddept');sel.innerHTML='<option value="">Select…</option>'+d.data.map(dep=>`<option value="${dep.id}">${dep.name}</option>`).join('');loadQRStaff();}catch(e){}}
 
 // ══════════════════════════════════════════
 // MODAL / DROPDOWN
@@ -1609,7 +1610,7 @@ async function editDoc(id) {
     const depSel = document.getElementById('dedept');
     depSel.innerHTML = '<option value="">Select...</option>';
     try {
-      const deps = await call('/api/v1/departments');
+      const deps = await call(_cfg.departments||'/api/v1/departments');
       deps.data.forEach(dep => {
         const opt = document.createElement('option');
         opt.value = dep.id; opt.textContent = dep.name;
