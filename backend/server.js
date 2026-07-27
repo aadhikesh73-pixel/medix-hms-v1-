@@ -65,7 +65,7 @@ app.use(helmet({
             styleSrc:      ["'self'", "'unsafe-inline'"],
             imgSrc:        ["'self'", "data:"],
             connectSrc:    ["'self'"],
-            frameSrc:      ["'none'", "challenges.cloudflare.com"],
+            frameSrc:      ["challenges.cloudflare.com"],
             frameAncestors:["'none'"],
             objectSrc:     ["'none'"],
             baseUri:       ["'self'"],
