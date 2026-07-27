@@ -59,18 +59,17 @@ app.use(helmet({
     contentSecurityPolicy: {
         useDefaults: false,
         directives: {
-            defaultSrc:     ["'self'"],
-            // Nonce-based CSP — no unsafe-inline needed
-            scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "cdnjs.cloudflare.com"],
-            scriptSrcAttr:  ["'none'"],
-            styleSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
-            imgSrc:         ["'self'", "data:"],
-            connectSrc:     ["'self'"],
-            frameSrc:       ["'none'"],
-            frameAncestors: ["'none'"],
-            objectSrc:      ["'none'"],
-            baseUri:        ["'self'"],
-            formAction:     ["'self'"],
+            defaultSrc:    ["'self'"],
+            scriptSrc:     ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "'unsafe-inline'", "cdnjs.cloudflare.com", "challenges.cloudflare.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            styleSrc:      ["'self'", "'unsafe-inline'"],
+            imgSrc:        ["'self'", "data:"],
+            connectSrc:    ["'self'"],
+            frameSrc:      ["'none'", "challenges.cloudflare.com"],
+            frameAncestors:["'none'"],
+            objectSrc:     ["'none'"],
+            baseUri:       ["'self'"],
+            formAction:    ["'self'"],
         },
     },
     crossOriginEmbedderPolicy: false,
@@ -507,8 +506,8 @@ app.use(express.static(path.join(__dirname, 'public'), {
         const nonce = res.locals.nonce; // Set by middleware — always defined
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
-            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com; ` +
-            `style-src 'self' 'nonce-${nonce}'; ` +
+            `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
+            `style-src 'self' 'unsafe-inline'; ` +
             `img-src 'self' data:; ` +
             `connect-src 'self'; ` +
             `frame-ancestors 'none'; ` +
