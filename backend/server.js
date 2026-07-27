@@ -718,6 +718,21 @@ app.get('/api/auth/config', auth, (req, res) => {
     });
 });
 
+
+// ── SESSION VERIFICATION ENDPOINT ───────────────────────────────
+// Called on every page load to confirm session is still valid
+// Returns 200 + user info if valid, 401 if not
+app.get('/api/auth/verify', auth, (req, res) => {
+    res.json({
+        valid: true,
+        user: {
+            email: req.user.email,
+            role:  req.user.role,
+            sub:   req.user.sub
+        }
+    });
+});
+
 app.get('/api/v1/overview', auth, async (req, res) => {
     try {
         const r = await q(`

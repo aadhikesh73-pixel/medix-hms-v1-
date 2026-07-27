@@ -1038,7 +1038,8 @@ document.addEventListener('DOMContentLoaded', () => {
   ['lemail','lpass','capA'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
   document.addEventListener('click', e => { if(!e.target.closest('.sb') && !e.target.closest('.sdrop')) cd(); });
   document.addEventListener('click', e => { if(e.target.classList.contains('mback')) e.target.classList.remove('on'); });
-  if(user) showApp(); // Session restored from sessionStorage user info
+  // SECURITY: Always verify session with server — never trust storage alone
+  _verifySessionOnLoad();
 });
 
 // ══════════════════════════════════════════
