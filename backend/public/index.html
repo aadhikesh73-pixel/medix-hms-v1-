@@ -1091,6 +1091,22 @@ sessionStorage.setItem('mx_user',JSON.stringify(user)); // Only non-sensitive us
   finally{btn.disabled=false;btn.textContent='Sign in to MediX';}
 }
 
+
+// ── API CONFIG — loaded post-auth, API paths not in initial bundle ──
+let _cfg = {};
+async function loadApiConfig() {
+    try {
+        const res = await fetch(API + '/api/auth/config', {
+            credentials: 'include',
+            headers: token ? {'Authorization':'Bearer '+token} : {}
+        });
+        if (res.ok) {
+            const d = await res.json();
+            _cfg = d.endpoints || {};
+        }
+    } catch(e) { /* keep empty _cfg, fallback handled per-call */ }
+}
+
 function showApp() {
   loadApiConfig(); // Load API paths after auth
   document.getElementById('ls').style.display='none';
@@ -1163,7 +1179,7 @@ function mkChart(id,type,labels,datasets,opts={}) {
 // ══════════════════════════════════════════
 async function loadDash() {
   try {
-    const [ov,pts,docs,trend]=await Promise.all([call(_cfg.overview||''),call('/api/v'+'1/pati'+'ents'),call('/api/v'+'1/doct'+'ors'),call(_cfg.finTrend||'')]);
+    const [ov,pts,docs,trend]=await Promise.all([call((_cfg.overview||'/api/v1/overview')),call('/api/v'+'1/pati'+'ents'),call('/api/v'+'1/doct'+'ors'),call((_cfg.finTrend||'/api/v1/finance/trend'))]);
     const o=ov.data;
     document.getElementById('ov1').textContent=o.total_patients||0;document.getElementById('ov1s').textContent=`${o.in_patients||0} admitted`;
     document.getElementById('ov2').textContent=o.in_patients||0;document.getElementById('ov2s').textContent=`${o.icu_patients||0} in ICU`;
@@ -1237,14 +1253,14 @@ async function saveDoc(keepOpen=false) {
   try{await call('/api/v'+'1/doct'+'ors',{method:'POST',body:JSON.stringify(body)});toast('Doctor added ✓','s');['dfn','dln','dem','dph','dspec','dqual','dexp'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('docM');loadDoctors();loadDash();loadQRStaff();}
   catch(e){toast(e.message,'e');}
 }
-async function updDocSt(id,status){try{await call((_cfg.doctors||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
+async function updDocSt(id,status){try{await call(((_cfg.doctors||'/api/v1/doctors'))+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Status → ${status}`,'s');loadDoctors();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // BEDS
 // ══════════════════════════════════════════
 async function loadBeds() {
   try {
-    const d=await call(_cfg.beds||'');allBeds=d.data;
+    const d=await call((_cfg.beds||'/api/v1/beds'));allBeds=d.data;
     const free=allBeds.filter(b=>b.status==='FREE').length,occ=allBeds.filter(b=>b.status==='OCCUPIED').length,cln=allBeds.filter(b=>b.status==='CLEANING').length,icu=allBeds.filter(b=>b.bed_type==='ICU').length;
     document.getElementById('bTotal').textContent=allBeds.length;document.getElementById('bFree').textContent=free;document.getElementById('bOcc').textContent=occ;document.getElementById('bClean').textContent=cln;document.getElementById('bICU').textContent=icu;
     mkChart('bedChartFull','doughnut',['Free','Occupied','Cleaning','Maintenance'],[{data:[free,occ,cln,allBeds.filter(b=>b.status==='MAINTENANCE').length],backgroundColor:['rgba(34,212,139,.8)','rgba(240,82,82,.8)','rgba(245,166,35,.8)','rgba(255,255,255,.15)'],borderWidth:0}]);
@@ -1262,7 +1278,7 @@ function renderBeds(beds) {
 }
 function bedCell(b){const cls=b.bed_type==='ICU'?'icu':b.status==='FREE'?'free':b.status==='OCCUPIED'?'occupied':b.status==='CLEANING'?'cleaning':'maintenance';const ic=b.bed_type==='ICU'?'🏥':b.status==='FREE'?'✅':b.status==='OCCUPIED'?'🔴':'🧹';const tip=b.patient_name?`${b.patient_name} (${b.patient_id_number})`:b.status;return `<div class="bed-cell ${cls}" onclick="toggleBed(${b.id},'${b.status}')" title="${tip}"><span>${ic}</span><span class="bn">${b.bed_number}</span><span>${b.status}</span></div>`;}
 function filterBeds(f){if(f==='all')renderBeds(allBeds);else if(f==='ICU')renderBeds(allBeds.filter(b=>b.bed_type==='ICU'));else renderBeds(allBeds.filter(b=>b.status===f));}
-async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{await call((_cfg.beds||'')+`/${id}`,{method:'PATCH',body:JSON.stringify({status:ns})});toast(`Bed → ${ns}`,'s');loadBeds();}catch(e){toast(e.message,'e');}}
+async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{await call(((_cfg.beds||'/api/v1/beds'))+`/${id}`,{method:'PATCH',body:JSON.stringify({status:ns})});toast(`Bed → ${ns}`,'s');loadBeds();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // ATTENDANCE
@@ -1270,7 +1286,7 @@ async function toggleBed(id,cur){const ns=cur==='FREE'?'OCCUPIED':'FREE';try{awa
 async function loadAttendance() {
   document.getElementById('attBody').innerHTML=lRow(8);
   try {
-    const d=await call(_cfg.attendance||'');const all=d.data;
+    const d=await call((_cfg.attendance||'/api/v1/attendance'));const all=d.data;
     document.getElementById('attP').textContent=all.filter(a=>a.status==='PRESENT').length;
     document.getElementById('attA').textContent='—';
     document.getElementById('attL').textContent=all.filter(a=>{const h=a.check_in?new Date(a.check_in).getHours():null;return h&&h>9;}).length;
@@ -1281,8 +1297,8 @@ async function loadAttendance() {
 }
 async function loadQRStaff(){try{const d=await call('/api/v'+'1/doct'+'ors');const sel=document.getElementById('qrStaffSel');sel.innerHTML='<option value="">Select staff…</option>'+d.data.map(doc=>`<option value="${doc.qr_code_id}" data-name="${doc.first_name} ${doc.last_name}">${doc.first_name} ${doc.last_name} (${doc.qr_code_id||'No QR'})</option>`).join('');}catch(e){}}
 function startScan(){toast('Camera QR scanning requires native app / browser API. Use manual entry below.','i');}
-async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call(_cfg.checkin||'',{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
-async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call(_cfg.checkout||'',{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
+async function doCheckin(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{const d=await call((_cfg.checkin||'/api/v1/attendance/checkin'),{method:'POST',body:JSON.stringify({qr_code_id:qrId,method:'MANUAL'})});const out=document.getElementById('qrOut');out.style.display='block';out.textContent=`✅ Welcome ${d.staff?.first_name||''} ${d.staff?.last_name||''}! Checked in at ${new Date(d.data.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}`;document.getElementById('manualId').value='';toast('Check-in recorded ✓','s');loadAttendance();}catch(e){toast(e.message,'e');}}
+async function doCheckout(){const qrId=document.getElementById('manualId').value.trim();if(!qrId){toast('Enter QR ID','w');return;}try{await call((_cfg.checkout||'/api/v1/attendance/checkout'),{method:'POST',body:JSON.stringify({qr_code_id:qrId})});toast('Check-out recorded ✓','s');document.getElementById('manualId').value='';loadAttendance();}catch(e){toast(e.message,'e');}}
 function genQR(){const sel=document.getElementById('qrStaffSel');const qrId=sel.value;const name=sel.selectedOptions[0]?.getAttribute('data-name');if(!qrId){toast('Select a staff member','w');return;}const container=document.getElementById('qrContainer');container.innerHTML='';container.style.display='block';new QRCode(container,{text:qrId,width:150,height:150,colorDark:'#000',colorLight:'#fff'});const nm=document.getElementById('qrStaffName');nm.style.display='block';nm.textContent=`${name} · ${qrId}`;}
 function gQRDoc(qrId,name){if(!qrId){toast('No QR ID for this doctor','w');return;}pg('attendance',document.querySelectorAll('.nav')[4]);setTimeout(()=>{const sel=document.getElementById('qrStaffSel');for(let o of sel.options){if(o.value===qrId){sel.value=qrId;break;}}genQR();},300);}
 function printQR(){toast('Connect to printer API for production printing','i');}
@@ -1293,7 +1309,7 @@ function printQR(){toast('Connect to printer API for production printing','i');}
 async function loadAppts() {
   document.getElementById('apptBody').innerHTML=lRow(8);
   try {
-    const d=await call(_cfg.appointments||'');const all=d.data;
+    const d=await call((_cfg.appointments||'/api/v1/appointments'));const all=d.data;
     const comp=all.filter(a=>a.status==='COMPLETED').length,sched=all.filter(a=>a.status==='SCHEDULED').length,canc=all.filter(a=>a.status==='CANCELLED').length;
     document.getElementById('apTotal').textContent=all.length;document.getElementById('apComp').textContent=comp;document.getElementById('apSched').textContent=sched;document.getElementById('apCanc').textContent=canc;
     document.getElementById('apptCnt').textContent=`${all.length} appointments`;
@@ -1303,8 +1319,8 @@ async function loadAppts() {
     document.getElementById('apptBody').innerHTML=all.length?all.map(a=>`<tr><td><span class="b dim">${a.appointment_code||'—'}</span></td><td><strong>${a.patient_name||'—'}</strong></td><td>${a.doctor_name||'—'}</td><td>${a.appointment_date?new Date(a.appointment_date).toLocaleDateString('en-IN'):'—'}</td><td>${a.appointment_time||'—'}</td><td><span class="b blue">${a.appointment_type}</span></td><td><span class="b ${a.status==='COMPLETED'?'grn':a.status==='CANCELLED'?'red':'blue'}">${a.status}</span></td><td><div class="sb gho"><button class="mb">Manage</button><button class="ab" onclick="td('aR${a.id}')">▾</button><div class="sdrop" id="aR${a.id}"><a onclick="updAppt(${a.id},'COMPLETED');cd()">✅ Complete</a><a onclick="updAppt(${a.id},'CANCELLED');cd()">❌ Cancel</a></div></div></td></tr>`).join(''):eRow(8,'No appointments');
   } catch(e){toast(e.message,'e');}
 }
-async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call(_cfg.appointments||'',{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
-async function updAppt(id,status){try{await call((_cfg.appointments||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
+async function saveAppt(){const body={patient_id:parseInt(g('apPat')),doctor_id:parseInt(g('apDoc')),appointment_date:g('apDate'),appointment_time:g('apTime')||null,appointment_type:g('apType'),status:g('apStat'),reason:g('apReason')||null};if(!body.patient_id||!body.doctor_id||!body.appointment_date){toast('Patient ID, Doctor ID, Date required','w');return;}try{await call((_cfg.appointments||'/api/v1/appointments'),{method:'POST',body:JSON.stringify(body)});toast('Appointment booked ✓','s');closeM('apptM');loadAppts();}catch(e){toast(e.message,'e');}}
+async function updAppt(id,status){try{await call(((_cfg.appointments||'/api/v1/appointments'))+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Appointment ${status}`,'s');loadAppts();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // PHARMACY
@@ -1326,7 +1342,7 @@ async function loadMeds() {
 function renderMeds(meds){document.getElementById('medBody').innerHTML=meds.length?meds.map(m=>{const pct=Math.min(100,Math.round((m.quantity_in_stock/((m.reorder_level||50)*3))*100));const clr=m.stock_status==='IN_STOCK'?'var(--grn)':m.stock_status==='LOW_STOCK'?'var(--amb)':'var(--red)';const stB=m.stock_status==='IN_STOCK'?'grn':m.stock_status==='LOW_STOCK'?'amb':'red';return `<tr><td><strong>${m.medicine_name}</strong><br><span style="font-size:10px;color:var(--sub)">${m.generic_name||''}</span></td><td><span class="b dim">${m.category||'—'}</span></td><td>${m.quantity_in_stock} ${m.unit||''}</td><td style="min-width:90px"><div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${clr}"></div></div></td><td>${m.reorder_level||'—'}</td><td><span class="${m.expiry_status==='EXPIRING_SOON'?'b amb':m.expiry_status==='EXPIRED'?'b red':''}">${m.expiry_date?new Date(m.expiry_date).toLocaleDateString('en-IN'):'—'}</span></td><td>${m.unit_price?'₹'+m.unit_price:'—'}</td><td><span class="b ${stB}">${m.stock_status}</span></td><td><div class="sb gho"><button class="mb" onclick="restockMed(${m.id})">Restock</button><button class="ab" onclick="td('mR${m.id}')">▾</button><div class="sdrop" id="mR${m.id}"><a onclick="restockMed(${m.id});cd()">📦 Restock</a><a onclick="cd()">📋 History</a><a onclick="cd()">🗑 Remove</a></div></div></td></tr>`}).join(''):eRow(9,'No medicines in inventory');}
 function filterMeds(f){if(f==='low')renderMeds(allMeds.filter(m=>m.stock_status==='LOW_STOCK'||m.stock_status==='OUT_OF_STOCK'));else renderMeds(allMeds);}
 async function saveMed(keepOpen=false){const body={medicine_name:g('mname'),generic_name:g('mgname')||null,category:g('mcat')||null,strength:g('mstr')||null,unit:g('munit')||'units',quantity_in_stock:parseInt(g('mqty'))||0,reorder_level:parseInt(g('mreorder'))||50,unit_price:parseFloat(g('mprice'))||null,expiry_date:g('mexpiry')||null,manufacturer:g('mmfr')||null,batch_number:g('mbatch')||null};if(!body.medicine_name){toast('Medicine name required','w');return;}try{await call('/api/v'+'1/medi'+'cines',{method:'POST',body:JSON.stringify(body)});toast('Medicine added ✓','s');['mname','mgname','mcat','mstr','munit','mqty','mreorder','mprice','mexpiry','mmfr','mbatch'].forEach(id=>document.getElementById(id).value='');if(!keepOpen)closeM('medM');loadMeds();}catch(e){toast(e.message,'e');}}
-async function restockMed(id){const qty=prompt('Add quantity:');if(!qty||isNaN(parseInt(qty)))return;try{await call((_cfg.medicines||'')+`/${id}/stock`,{method:'PATCH',body:JSON.stringify({quantity:parseInt(qty)})});toast('Stock updated ✓','s');loadMeds();}catch(e){toast(e.message,'e');}}
+async function restockMed(id){const qty=prompt('Add quantity:');if(!qty||isNaN(parseInt(qty)))return;try{await call(((_cfg.medicines||'/api/v1/medicines'))+`/${id}/stock`,{method:'PATCH',body:JSON.stringify({quantity:parseInt(qty)})});toast('Stock updated ✓','s');loadMeds();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // ORDERS
@@ -1341,14 +1357,14 @@ async function loadOrders() {
   } catch(e){toast(e.message,'e');}
 }
 async function saveOrder(){const body={order_type:g('otype'),supplier_id:parseInt(g('osup'))||null,items:[{name:g('oitems'),qty:1}],total_amount:parseFloat(g('oamt'))||0,expected_delivery:g('odel')||null,notes:g('onotes')||null};try{await call('/api/v'+'1/orde'+'rs',{method:'POST',body:JSON.stringify(body)});toast('Order placed ✓','s');closeM('orderM');loadOrders();}catch(e){toast(e.message,'e');}}
-async function updOrder(id,status){try{await call((_cfg.orders||'')+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
+async function updOrder(id,status){try{await call(((_cfg.orders||'/api/v1/orders'))+`/${id}/status`,{method:'PATCH',body:JSON.stringify({status})});toast(`Order → ${status}`,'s');loadOrders();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // FINANCE
 // ══════════════════════════════════════════
 async function loadFinance() {
   try {
-    const [ov,sect,trend]=await Promise.all([call(_cfg.finOverview||''),call(_cfg.finSector||''),call(_cfg.finTrend||'')]);
+    const [ov,sect,trend]=await Promise.all([call((_cfg.finOverview||'/api/v1/finance/overview')),call((_cfg.finSector||'/api/v1/finance/by-sector')),call((_cfg.finTrend||'/api/v1/finance/trend'))]);
     const o=ov.data;
     const rev=parseFloat(o.total_revenue)||0,exp=parseFloat(o.total_expense)||0,net=parseFloat(o.net_profit)||0;
     document.getElementById('finRev').textContent=`₹${fmt(rev)}`;document.getElementById('finExp').textContent=`₹${fmt(exp)}`;document.getElementById('finNet').textContent=`₹${fmt(net)}`;document.getElementById('finPct').textContent=rev>0?`${Math.round((net/rev)*100)}%`:'—';
@@ -1356,20 +1372,20 @@ async function loadFinance() {
     if(sect.data&&sect.data.length){mkChart('finSectorChart','doughnut',sect.data.map(s=>s.sector||'Other'),[{data:sect.data.map(s=>s.revenue),backgroundColor:['rgba(34,212,139,.8)','rgba(59,158,255,.8)','rgba(167,139,250,.8)','rgba(245,166,35,.8)','rgba(240,82,82,.8)','rgba(244,114,182,.8)'],borderWidth:0}]);document.getElementById('finBody').innerHTML=sect.data.map(s=>{const n=parseFloat(s.revenue)-parseFloat(s.expense);const share=rev>0?Math.round((parseFloat(s.revenue)/rev)*100):0;return `<tr><td><strong>${s.sector||'—'}</strong></td><td style="color:var(--grn)">₹${fmt(s.revenue)}</td><td style="color:var(--red)">₹${fmt(s.expense)}</td><td style="color:${n>=0?'var(--grn)':'var(--red)'}">₹${fmt(Math.abs(n))}</td><td><div class="prog-bar"><div class="prog-fill" style="width:${share}%;background:var(--grn)"></div></div>${share}%</td></tr>`;}).join('');}
   } catch(e){toast(e.message,'e');}
 }
-async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txsector'),amount:parseFloat(g('txamt')),category:g('txcat')||null,description:g('txdesc')||null};if(!body.amount){toast('Amount required','w');return;}try{await call(_cfg.finTxn||'',{method:'POST',body:JSON.stringify(body)});toast('Transaction saved ✓','s');closeM('txnM');loadFinance();}catch(e){toast(e.message,'e');}}
+async function saveTxn(){const body={transaction_type:g('txtype'),sector:g('txsector'),amount:parseFloat(g('txamt')),category:g('txcat')||null,description:g('txdesc')||null};if(!body.amount){toast('Amount required','w');return;}try{await call((_cfg.finTxn||'/api/v1/finance/transaction'),{method:'POST',body:JSON.stringify(body)});toast('Transaction saved ✓','s');closeM('txnM');loadFinance();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // NOTIFICATIONS
 // ══════════════════════════════════════════
 function toggleNotif(){document.getElementById('np').classList.toggle('on');if(document.getElementById('np').classList.contains('on'))loadNotifs();}
-async function loadNotifs(){try{const d=await call(_cfg.notifications||'');const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
-async function markRead(id){try{await call((_cfg.notifications||'')+`/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
-async function markAllRead(){try{await call(_cfg.readAll||'',{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
+async function loadNotifs(){try{const d=await call((_cfg.notifications||'/api/v1/notifications'));const unread=d.data.filter(n=>!n.is_read).length;document.getElementById('nBadge').textContent=unread;const sc={ICU:'red',PHARMACY:'amb',PATIENT:'blue',APPOINTMENTS:'grn',ORDERS:'pur',FINANCE:'pnk',GENERAL:'dim'};document.getElementById('npBody').innerHTML=d.data.length?d.data.map(n=>`<div class="ni ${!n.is_read?'unread':''} ${n.priority==='CRITICAL'?'critical':''}" onclick="markRead(${n.id})"><div class="ni-head"><span class="b ${sc[n.sector]||'dim'}">${n.sector||'GENERAL'}</span><span class="b ${n.priority==='CRITICAL'?'red':n.priority==='HIGH'?'amb':'dim'}">${n.priority}</span><span class="ni-time">${timeSince(n.created_at)}</span></div><div class="ni-title">${n.title}</div><div class="ni-msg">${n.message}</div></div>`).join(''):'<div style="text-align:center;padding:32px;color:var(--sub);font-size:13px">All caught up! 🎉</div>';}catch(e){toast(e.message,'e');}}
+async function markRead(id){try{await call(((_cfg.notifications||'/api/v1/notifications'))+`/${id}/read`,{method:'PATCH'});loadNotifs();}catch(e){}}
+async function markAllRead(){try{await call((_cfg.readAll||'/api/v1/notifications/read-all'),{method:'PATCH'});toast('All marked as read','s');loadNotifs();}catch(e){toast(e.message,'e');}}
 
 // ══════════════════════════════════════════
 // DEPARTMENTS
 // ══════════════════════════════════════════
-async function loadDepts(){try{const d=await call(_cfg.departments||'');const sel=document.getElementById('ddept');sel.innerHTML='<option value="">Select…</option>'+d.data.map(dep=>`<option value="${dep.id}">${dep.name}</option>`).join('');loadQRStaff();}catch(e){}}
+async function loadDepts(){try{const d=await call((_cfg.departments||'/api/v1/departments'));const sel=document.getElementById('ddept');sel.innerHTML='<option value="">Select…</option>'+d.data.map(dep=>`<option value="${dep.id}">${dep.name}</option>`).join('');loadQRStaff();}catch(e){}}
 
 // ══════════════════════════════════════════
 // MODAL / DROPDOWN
@@ -1455,7 +1471,7 @@ async function viewPatDetail(id) {
   openM('patDetailM');
   document.getElementById('patDetailBody').innerHTML = '<div style="text-align:center;padding:20px"><div class="spin"></div></div>';
   try {
-    const d = await call((_cfg.patients||'')+'/'+ id);
+    const d = await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id);
     const p = d.data;
     document.getElementById('patDetailBody').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -1490,7 +1506,7 @@ async function editPat(id) {
   openM('patEditM');
   document.getElementById('patEditId').textContent = '— Loading...';
   try {
-    const d = await call((_cfg.patients||'')+'/'+ id);
+    const d = await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id);
     const p = d.data;
     document.getElementById('peId').value    = p.id;
     document.getElementById('patEditId').textContent = `— ${p.patient_id_number}`;
@@ -1523,7 +1539,7 @@ async function savePatEdit() {
   };
   if (!body.first_name || !body.last_name || !body.phone) { toast('First name, last name, phone required','w'); return; }
   try {
-    await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
+    await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
     toast('Patient updated ✓','s');
     closeM('patEditM');
     loadPatients();
@@ -1533,15 +1549,15 @@ async function savePatEdit() {
 
 async function chgPatStatus(id, status) {
   try {
-    await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify({ first_name:'_', last_name:'_', phone:'0000000000', admission_status: status }) });
+    await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id, { method:'PUT', body: JSON.stringify({ first_name:'_', last_name:'_', phone:'0000000000', admission_status: status }) });
     toast('Patient status → ' + status,'s');
     loadPatients();
   } catch(e) {
     // Fallback: fetch full patient first then update
     try {
-      const d = await call((_cfg.patients||'')+'/'+ id);
+      const d = await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id);
       const p = d.data;
-      await call((_cfg.patients||'')+'/'+ id, { method:'PUT', body: JSON.stringify({...p, admission_status: status}) });
+      await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id, { method:'PUT', body: JSON.stringify({...p, admission_status: status}) });
       toast('Status → ' + status,'s');
       loadPatients();
     } catch(e2) { toast(e2.message,'e'); }
@@ -1551,7 +1567,7 @@ async function chgPatStatus(id, status) {
 async function deactPat(id) {
   if (!confirm('Deactivate this patient? They will be hidden from active lists.')) return;
   try {
-    await call((_cfg.patients||'')+'/'+ id, { method:'DELETE' });
+    await call(((_cfg.patients||'/api/v1/patients'))+'/'+ id, { method:'DELETE' });
     toast('Patient deactivated','s');
     loadPatients();
   } catch(e) { toast(e.message,'e'); }
@@ -1564,7 +1580,7 @@ async function viewDocDetail(id) {
   openM('docDetailM');
   document.getElementById('docDetailBody').innerHTML = '<div style="text-align:center;padding:20px"><div class="spin"></div></div>';
   try {
-    const d = await call((_cfg.doctors||'')+'/'+ id);
+    const d = await call(((_cfg.doctors||'/api/v1/doctors'))+'/'+ id);
     const doc = d.data;
     document.getElementById('docDetailBody').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
@@ -1593,7 +1609,7 @@ async function editDoc(id) {
   openM('docEditM');
   document.getElementById('docEditId').textContent = '— Loading...';
   try {
-    const d = await call((_cfg.doctors||'')+'/'+ id);
+    const d = await call(((_cfg.doctors||'/api/v1/doctors'))+'/'+ id);
     const doc = d.data;
     document.getElementById('deId').value     = doc.id;
     document.getElementById('docEditId').textContent = `— ${doc.qr_code_id||'DR-'+doc.id}`;
@@ -1610,7 +1626,7 @@ async function editDoc(id) {
     const depSel = document.getElementById('dedept');
     depSel.innerHTML = '<option value="">Select...</option>';
     try {
-      const deps = await call(_cfg.departments||'');
+      const deps = await call((_cfg.departments||'/api/v1/departments'));
       deps.data.forEach(dep => {
         const opt = document.createElement('option');
         opt.value = dep.id; opt.textContent = dep.name;
@@ -1633,7 +1649,7 @@ async function saveDocEdit() {
   };
   if (!body.first_name || !body.last_name || !body.email) { toast('First name, last name, email required','w'); return; }
   try {
-    await call((_cfg.doctors||'')+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
+    await call(((_cfg.doctors||'/api/v1/doctors'))+'/'+ id, { method:'PUT', body: JSON.stringify(body) });
     toast('Doctor updated ✓','s');
     closeM('docEditM');
     loadDoctors();
@@ -1644,7 +1660,7 @@ async function saveDocEdit() {
 async function deactDoc(id) {
   if (!confirm('Remove this doctor from active staff?')) return;
   try {
-    await call((_cfg.doctors||'')+'/'+ id, { method:'DELETE' });
+    await call(((_cfg.doctors||'/api/v1/doctors'))+'/'+ id, { method:'DELETE' });
     toast('Doctor removed','s');
     loadDoctors();
   } catch(e) { toast(e.message,'e'); }
