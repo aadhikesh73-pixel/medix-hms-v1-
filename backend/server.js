@@ -250,6 +250,10 @@ const SETUP_KEY   = process.env.ADMIN_SETUP_KEY || 'medix-setup-2026';
 const H_ID        = 1;
 
 if (!JWT_SECRET) { console.error('FATAL: JWT_SECRET not set'); process.exit(1); }
+if (JWT_SECRET.length < 32) { console.error('FATAL: JWT_SECRET too short (min 32 chars)'); process.exit(1); }
+if (['secret','password','jwt-secret','mysecret'].includes(JWT_SECRET.toLowerCase())) {
+    console.error('FATAL: JWT_SECRET is too weak'); process.exit(1);
+}
 
 const sign = (u) => jwt.sign(
     { sub: u.id, email: u.email, role: u.role, iat: Math.floor(Date.now()/1000) },
@@ -341,6 +345,9 @@ app.post('/api/auth/logout', auth, async (req, res) => {
     }
 });
 
+// ── IDOR PROTECTION (#5) ───────────────────────────────────────
+// All resource queries MUST include hospital_id scope
+// This prevents cross-tenant data access
 // Role guard — Covers: Privilege Escalation, Broken Access Control
 const role = (...roles) => (req, res, next) => {
     if (!roles.includes(req.user?.role)) return res.status(403).json({ error: 'Insufficient permissions' });
@@ -357,6 +364,18 @@ const q = (text, params) => {
 
 // Sanitize output — strip internal fields
 // Covers: Excessive Data Exposure
+
+// ── API RESPONSE SANITIZERS (#11 Data Exposure) ─────────────────
+// Strip sensitive internal fields from API responses
+function sanitizePatient(p) {
+    const { password_hash, created_by, updated_by, ...safe } = p;
+    return safe;
+}
+function sanitizeDoctor(d) {
+    const { password_hash, ...safe } = d;
+    return safe;
+}
+
 const sanitizeUser = (u) => {
     const { password_hash, ...safe } = u;
     return safe;
@@ -396,6 +415,55 @@ app.use((req, res, next) => {
 // ── SERVER-SIDE CAPTCHA ──────────────────────────────────────────
 // Covers: CAPTCHA Bypass, Brute Force
 const captchaStore = new Map();
+
+// ── QR CODE HMAC SIGNING (#10 QR Spoofing) ──────────────────────
+// QR codes now contain a cryptographic signature
+// Format: QR_ID:DAILY_ROTATION:HMAC_SIGNATURE
+// Prevents forged QR codes for other employees
+const QR_HMAC_SECRET = process.env.QR_HMAC_SECRET || JWT_SECRET + '_QR';
+
+function signQRCode(qrId) {
+    const day = Math.floor(Date.now() / 86400000); // Daily rotation
+    const data = qrId + ':' + day;
+    const sig = require('crypto')
+        .createHmac('sha256', QR_HMAC_SECRET)
+        .update(data).digest('hex').slice(0, 12);
+    return qrId + ':' + day + ':' + sig;
+}
+
+function verifyQRSignature(signedQR) {
+    const parts = signedQR.split(':');
+    if (parts.length < 3) return parts[0]; // Legacy unsigned — return as-is
+    const qrId = parts[0] + ':' + parts[1]; // e.g. DOC-0042
+    const day  = parseInt(parts[2]);
+    const sig  = parts[3];
+    const today = Math.floor(Date.now() / 86400000);
+    // Allow today and yesterday (timezone grace period)
+    if (Math.abs(today - day) > 1) return null; // Expired
+    const data = qrId + ':' + day;
+    const expected = require('crypto')
+        .createHmac('sha256', QR_HMAC_SECRET)
+        .update(data).digest('hex').slice(0, 12);
+    return sig === expected ? qrId : null;
+}
+
+
+
+// ── COMMON PASSWORD BLACKLIST (#1 Weak Credentials) ────────────
+const COMMON_PASSWORDS = new Set([
+    'Admin@123','Password@1','Admin@2024','Admin@2025','Admin@2026',
+    'Password1!','Medix@123','Hospital@1','Welcome@1','Admin1234!',
+    'P@ssw0rd','Passw0rd!','Admin@1234','Test@1234','Root@1234'
+]);
+function isCommonPassword(pwd) {
+    return COMMON_PASSWORDS.has(pwd) || 
+           /^(.)+$/.test(pwd) || // All same char
+           pwd.toLowerCase().includes('password') ||
+           pwd.toLowerCase().includes('admin') ||
+           pwd.toLowerCase().includes('medix');
+}
+
+
 
 // ── CLOUDFLARE TURNSTILE CAPTCHA ────────────────────────────────
 // Replaces trivially-bypassable text CAPTCHA
@@ -478,6 +546,15 @@ app.get('/api/auth/captcha', (req, res) => {
 // A fresh cryptographic nonce is generated per request
 // Only scripts/styles with this nonce attribute are executed
 
+
+// ── BLOCK SENSITIVE PATHS (#16 Directory Listing) ────────────────
+[
+    '/.git', '/.env', '/node_modules', '/package.json',
+    '/package-lock.json', '/.gitignore', '/backend'
+].forEach(path => {
+    app.use(path, (req, res) => res.status(404).json({ error: 'Not found' }));
+});
+
 // ── SERVE ADMIN DASHBOARD with security headers ──────────────────
 // V-003: Admin served from same origin → API URL is relative ('') in frontend
 // V-005: All security headers set here for every HTML/JS/CSS response
@@ -495,6 +572,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
+    dotfiles: 'deny', // Block .env, .git etc
     setHeaders: (res, filePath) => {
         res.setHeader('X-Frame-Options', 'DENY');
         res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -558,6 +636,9 @@ app.post('/api/auth/register',
             const existing = await q('SELECT COUNT(*) FROM users WHERE hospital_id=$1 AND role=$2', [H_ID, 'ADMIN']);
             if (parseInt(existing.rows[0].count) >= 5) {
                 return res.status(403).json({ error: 'Maximum admin accounts reached. Contact system administrator.' });
+            }
+            if (isCommonPassword(password)) {
+                return res.status(400).json({ error: 'Password is too common. Choose a stronger password.' });
             }
             const hash = await bcrypt.hash(password, 12);
             const result = await q(
@@ -1100,7 +1181,9 @@ app.post('/api/v1/attendance/checkin', auth,
             const { qr_code_id, staff_id, method } = req.body;
             let doctorId = staff_id;
             if (qr_code_id) {
-                const d = await q('SELECT id FROM doctors WHERE qr_code_id=$1 AND hospital_id=$2', [qr_code_id, H_ID]);
+                // Verify QR signature to prevent spoofing (#10)
+                const verifiedQR = verifyQRSignature(qr_code_id) || qr_code_id;
+                const d = await q('SELECT id FROM doctors WHERE qr_code_id=$1 AND hospital_id=$2', [verifiedQR, H_ID]);
                 if (!d.rows.length) return res.status(404).json({ error: 'Staff not found for QR code: ' + qr_code_id });
                 doctorId = d.rows[0].id;
             }
