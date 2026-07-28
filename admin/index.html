@@ -1038,8 +1038,18 @@ document.addEventListener('DOMContentLoaded', () => {
   ['lemail','lpass','capA'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
   document.addEventListener('click', e => { if(!e.target.closest('.sb') && !e.target.closest('.sdrop')) cd(); });
   document.addEventListener('click', e => { if(e.target.classList.contains('mback')) e.target.classList.remove('on'); });
-  // SECURITY: Always verify session with server — never trust storage alone
-  _verifySessionOnLoad();
+  // SECURITY: Verify session with server on page load
+  const _saved = sessionStorage.getItem('mx_user');
+  if (_saved) {
+    user = JSON.parse(_saved);
+    // Always confirm with server — never trust storage alone
+    fetch(API + '/api/auth/verify', {credentials:'include'})
+      .then(r => {
+        if (r.ok) { r.json().then(d => { user = d.user || user; showApp(); }); }
+        else { user=null; token=null; sessionStorage.removeItem('mx_user'); }
+      })
+      .catch(() => { user=null; token=null; sessionStorage.removeItem('mx_user'); });
+  }
 });
 
 // ══════════════════════════════════════════
