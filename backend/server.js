@@ -207,7 +207,7 @@ setInterval(cleanupLoginAttempts, 60 * 1000);
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: 5,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many login attempts. Account temporarily locked. Try again in 15 minutes.' },
@@ -318,6 +318,7 @@ const auth = async (req, res, next) => {
 
         // Use role from DB — NOT from JWT (prevents privilege escalation via JWT claims)
         req.user = { ...decoded, role: dbUser.role };
+        console.log('AUDIT:', new Date().toISOString(), req.user.email, req.method, req.path);
         next();
     } catch (e) {
         console.error('Auth DB check failed:', e.message);
@@ -549,7 +550,7 @@ app.get('/api/auth/captcha', (req, res) => {
 
 // ── BLOCK SENSITIVE PATHS (#16 Directory Listing) ────────────────
 [
-    '/.git', '/.env', '/node_modules', '/package.json',
+    '/.git', '/.env', '/config.json', '/node_modules', '/package.json',
     '/package-lock.json', '/.gitignore', '/backend'
 ].forEach(path => {
     app.use(path, (req, res) => res.status(404).json({ error: 'Not found' }));
@@ -559,15 +560,51 @@ app.get('/api/auth/captcha', (req, res) => {
 // V-003: Admin served from same origin → API URL is relative ('') in frontend
 // V-005: All security headers set here for every HTML/JS/CSS response
 // Serve index.html dynamically — inject nonce into script/style tags
-app.get('/', (req, res) => {
+// ── AUTH-GATED ROOT ROUTE (fixes: dashboard HTML sent pre-auth) ──
+// Unauthenticated requests get ONLY login.html — no dashboard
+// markup, no patient/doctor labels, no data-loading JS at all.
+function _decodeCookieToken(req) {
+    try {
+        const cookieHeader = req.headers.cookie || '';
+        const m = cookieHeader.match(/(?:^|;\s*)mx_token=([^;]+)/);
+        const fromCookie = m ? decodeURIComponent(m[1]) : null;
+        const authHeader = req.headers.authorization || '';
+        const fromHeader = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+        const raw = fromCookie || fromHeader;
+        if (!raw) return null;
+        return jwt.verify(raw, JWT_SECRET, { algorithms: ['HS256'] });
+    } catch (e) {
+        return null;
+    }
+}
+
+app.get('/', async (req, res) => {
     const fs = require('fs');
-    const htmlPath = path.join(__dirname, 'public', 'index.html');
+    let authenticated = false;
+    const decoded = _decodeCookieToken(req);
+    if (decoded) {
+        try {
+            const chk = await pool.query(
+                'SELECT is_active, token_valid_from FROM users WHERE id=$1',
+                [decoded.sub]
+            );
+            if (chk.rows.length && chk.rows[0].is_active) {
+                const validFrom = chk.rows[0].token_valid_from
+                    ? Math.floor(new Date(chk.rows[0].token_valid_from).getTime() / 1000)
+                    : 0;
+                authenticated = decoded.iat >= validFrom;
+            }
+        } catch (e) { authenticated = false; }
+    }
+
+    const nonce = res.locals.nonce;
+    const htmlFile = authenticated ? 'index.html' : 'login.html';
+    const htmlPath = path.join(__dirname, 'public', htmlFile);
     let html = fs.readFileSync(htmlPath, 'utf8');
-    const nonce = res.locals.nonce; // Same nonce set by middleware
-    // Inject nonce into all script and style tags
     html = html.replace(/<script(?!.*nonce)/g, `<script nonce="${nonce}"`);
     html = html.replace(/<style(?!.*nonce)/g, `<style nonce="${nonce}"`);
     res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.send(html);
 });
 
