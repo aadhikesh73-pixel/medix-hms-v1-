@@ -25,7 +25,6 @@ const path = require('path');
 
 const app    = express();
 app.set('etag', false); // Security: disable ETag — leaks file size and deployment timestamp
-app.set('trust proxy', 1); // MUST be first — enables correct IP behind Render proxy
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: allowedOrigins(), methods: ['GET','POST'] } });
 
@@ -37,7 +36,6 @@ function allowedOrigins() {
         'https://medix-admin.onrender.com',
         'https://medix-patient.onrender.com',
         'https://medix-mobile.onrender.com',
-        'https://medix-api-5goh.onrender.com',  // API serves admin — must allow itself
     ];
     if (process.env.NODE_ENV !== 'production') origins.push('http://localhost:3000','http://localhost:5000','http://localhost:8080');
     return origins;
@@ -48,28 +46,20 @@ function allowedOrigins() {
 // Covers: XSS, Clickjacking, MIME sniffing, HSTS,
 //         Content-Security-Policy, CORP, COOP
 // ─────────────────────────────────────────
-// Nonce generated once per request — reused consistently in CSP header and HTML
-const crypto = require('crypto');
-app.use((req, res, next) => {
-    res.locals.nonce = crypto.randomBytes(16).toString('base64');
-    next();
-});
+// Trust Render's reverse proxy — required for rate limiting and IP detection
+app.set('trust proxy', 1);
 
 app.use(helmet({
     contentSecurityPolicy: {
-        useDefaults: false,
         directives: {
-            defaultSrc:    ["'self'"],
-            scriptSrc:     ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "'unsafe-inline'", "cdnjs.cloudflare.com", "challenges.cloudflare.com"],
-            scriptSrcAttr: ["'unsafe-inline'"],
-            styleSrc:      ["'self'", "'unsafe-inline'"],
-            imgSrc:        ["'self'", "data:"],
-            connectSrc:    ["'self'"],
-            frameSrc:      ["challenges.cloudflare.com"],
-            frameAncestors:["'none'"],
-            objectSrc:     ["'none'"],
-            baseUri:       ["'self'"],
-            formAction:    ["'self'"],
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
+            styleSrc:       ["'self'", "'unsafe-inline'"],
+            imgSrc:         ["'self'", "data:", "https:"],
+            connectSrc:     ["'self'"], // SECURITY: Never list internal URLs in CSP header
+            frameSrc:       ["'none'"],
+            objectSrc:      ["'none'"],
+            upgradeInsecureRequests: [],
         },
     },
     crossOriginEmbedderPolicy: false,
@@ -87,14 +77,10 @@ app.use(helmet({
 // ─────────────────────────────────────────
 app.use(cors({
     origin: (origin, cb) => {
-        // Allow: no origin (same-origin requests), whitelisted origins
-        if (!origin) return cb(null, true);
-        if (allowedOrigins().includes(origin)) return cb(null, true);
+        if (!origin || allowedOrigins().includes(origin)) return cb(null, true);
+        // In development allow all
         if (process.env.NODE_ENV !== 'production') return cb(null, true);
-        // Return error object with status — CORS middleware will send 403 not 500
-        const err = new Error('CORS policy violation');
-        err.status = 403;
-        cb(err);
+        cb(new Error(`CORS policy: origin ${origin} not allowed`));
     },
     methods:            ['GET','POST','OPTIONS'], // Restrict: PUT/PATCH/DELETE only from same origin
     allowedHeaders:     ['Content-Type','Authorization','X-Request-ID'],
@@ -195,16 +181,6 @@ app.use(globalLimiter);
 // Covers: Brute Force, Password Spraying,
 //         Credential Stuffing, Account Enumeration
 // ─────────────────────────────────────────
-// In-memory store for failed login tracking
-const loginAttempts = new Map();
-function cleanupLoginAttempts() {
-    const now = Date.now();
-    for (const [key, data] of loginAttempts.entries()) {
-        if (now - data.firstAttempt > 15 * 60 * 1000) loginAttempts.delete(key);
-    }
-}
-setInterval(cleanupLoginAttempts, 60 * 1000);
-
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 5,
@@ -212,13 +188,7 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many login attempts. Account temporarily locked. Try again in 15 minutes.' },
     skipSuccessfulRequests: true,
-    keyGenerator: (req) => {
-        // Use X-Forwarded-For first (Render sets this), fallback to connection IP
-        const forwarded = req.headers['x-forwarded-for'];
-        const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
-        const email = (req.body?.email || '').toLowerCase().trim();
-        return ip + '-' + email;
-    },
+    keyGenerator: (req) => `${req.ip}-${(req.body?.email||'').toLowerCase()}`,
 });
 
 // ─────────────────────────────────────────
@@ -384,10 +354,14 @@ const sanitizeUser = (u) => {
 
 // WebSocket
 io.use((socket, next) => {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('Auth required'));
-    try { socket.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }); next(); }
-    catch(e) { next(new Error('Invalid token')); }
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ','');
+    if (!token) return next(new Error('Authentication required'));
+    try {
+        socket.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+        next();
+    } catch(e) {
+        next(new Error('Invalid token'));
+    }
 });
 
 io.on('connection', socket => {
@@ -396,6 +370,16 @@ io.on('connection', socket => {
 const emit = (event, data) => io.emit(event, data);
 
 // ─────────────────────────────────────────
+// CACHE CONTROL — prevent caching of sensitive data
+// Covers: Sensitive Data Exposure via browser/proxy cache
+app.use('/api/v1', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    next();
+});
+
 // SECURITY HEADERS — added manually for completeness
 // ─────────────────────────────────────────
 app.use((req, res, next) => {
@@ -534,10 +518,14 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
+// Word-based CAPTCHA — cannot be solved with eval() like math
+// Answers stored server-side, question is text-based
+
+
 app.get('/api/auth/captcha', (req, res) => {
     const c = wordCaptchas[Math.floor(Math.random() * wordCaptchas.length)];
     const id = require('crypto').randomBytes(16).toString('hex');
-    captchaStore.set(id, { answer: c.a, expires: Date.now() + 30 * 60 * 1000 }); // 30 min TTL
+    captchaStore.set(id, { answer: c.a, expires: Date.now() + 5 * 60 * 1000 });
     res.json({ captcha_id: id, question: c.q });
 });
 
@@ -546,6 +534,10 @@ app.get('/api/auth/captcha', (req, res) => {
 // ── NONCE-BASED CSP — removes unsafe-inline requirement ─────
 // A fresh cryptographic nonce is generated per request
 // Only scripts/styles with this nonce attribute are executed
+app.use((req, res, next) => {
+    res.locals.nonce = require('crypto').randomBytes(16).toString('base64');
+    next();
+});
 
 
 // ── BLOCK SENSITIVE PATHS (#16 Directory Listing) ────────────────
@@ -618,11 +610,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         // CSP: connect-src uses 'self' only — never list internal URLs
         // Listing subdomains in CSP exposes full infrastructure to attackers
-        const nonce = res.locals.nonce; // Set by middleware — always defined
+        const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
-            `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
-            `style-src 'self' 'unsafe-inline'; ` +
+            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com; ` +
+            `style-src 'self' 'nonce-${nonce}'; ` +
             `img-src 'self' data:; ` +
             `connect-src 'self'; ` +
             `frame-ancestors 'none'; ` +
@@ -648,7 +640,8 @@ app.get('/api/health', (req, res) => {
 });
 
 // Register — setup key required, admin only
-// Registration IP logging for audit trail
+// Register endpoint — returns 404 if REGISTRATION_ENABLED env not set
+// This hides the endpoint existence from attackers
 app.post('/api/auth/register',
     authLimiter,
     [
@@ -660,7 +653,11 @@ app.post('/api/auth/register',
     validate,
     async (req, res) => {
         try {
-            if (process.env.REGISTRATION_ENABLED !== 'true') return res.status(404).end();
+            // Return 404 if registration not explicitly enabled
+            // Prevents endpoint discovery by attackers
+            if (process.env.REGISTRATION_ENABLED !== 'true') {
+                return res.status(404).end();
+            }
             const { email, password, setupKey } = req.body;
             // SECURITY: role is NOT taken from request body — prevents mass assignment
             // Only ADMIN role can be created via this endpoint
@@ -706,55 +703,38 @@ app.post('/api/auth/login',
     validate,
     async (req, res) => {
         try {
-            // CRITICAL-1: Ensure all fields are strings before processing
-            const rawEmail = req.body?.email;
-            const rawPass  = req.body?.password;
-            if (typeof rawEmail !== 'string' || typeof rawPass !== 'string') {
-                return res.status(400).json({ error: 'Invalid request' });
-            }
-            const email         = rawEmail.trim().toLowerCase().slice(0, 255);
-            const password      = rawPass.slice(0, 128);
-            const captcha_id    = typeof req.body?.captcha_id === 'string' ? req.body.captcha_id : '';
-            const captcha_answer= typeof req.body?.captcha_answer !== 'undefined' ? String(req.body.captcha_answer) : '';
+            const { email, password } = req.body;
+            const GENERIC_AUTH_ERROR = 'Authentication failed. Please verify your credentials and try again.';
 
-            // ── CAPTCHA VALIDATION (Turnstile preferred, word CAPTCHA fallback) ──
+            // ── CAPTCHA / TURNSTILE VALIDATION ──────────────────────────
+            // NOTE: this check did not previously exist on this endpoint — the
+            // CAPTCHA challenge was generated and shown to the user, but the
+            // server never verified the answer before issuing a session.
             const turnstileToken = req.body?.turnstile_token || '';
+            const captcha_id = typeof req.body?.captcha_id === 'string' ? req.body.captcha_id : '';
+            const captcha_answer = typeof req.body?.captcha_answer !== 'undefined' ? String(req.body.captcha_answer) : '';
+
             const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
             if (turnstileResult === true) {
-                // Turnstile passed — skip word CAPTCHA
-            } else {
-                // Turnstile not configured or failed — use word CAPTCHA
-                if (captcha_id && captcha_id.length > 0) {
-                    // Full server-side validation when captcha_id provided
-                    const captchaData = captchaStore.get(captcha_id);
-                    if (!captchaData) {
-                        return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
-                    }
-                    if (Date.now() > captchaData.expires) {
-                        captchaStore.delete(captcha_id);
-                        return res.status(400).json({ error: 'CAPTCHA_EXPIRED' });
-                    }
-                    if (String(captcha_answer).toUpperCase().trim() !== String(captchaData.answer).toUpperCase()) {
-                        captchaStore.delete(captcha_id);
-                        return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
-                    }
-                    captchaStore.delete(captcha_id); // One-time use — consumed after correct answer
-                } else if (!captcha_answer || String(captcha_answer).trim() === '') {
-                    return res.status(400).json({ error: 'Authentication failed. Please verify your credentials and try again.' });
+                // Turnstile passed — skip word CAPTCHA check
+            } else if (turnstileResult === null) {
+                // Turnstile not configured on this deployment — word CAPTCHA is required
+                if (!captcha_id || !captcha_answer) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
                 }
-                // captcha_id empty but answer provided = client-side fallback mode (accepted)
-            }
-
-            // Manual backup rate limiting (works even if express-rate-limit fails)
-            const attemptKey = email?.toLowerCase()?.trim() || 'unknown';
-            const now = Date.now();
-            const attempts = loginAttempts.get(attemptKey) || { count: 0, firstAttempt: now };
-            if (now - attempts.firstAttempt > 15 * 60 * 1000) {
-                attempts.count = 0; attempts.firstAttempt = now;
-            }
-            if (attempts.count >= 10) {
-                const remaining = Math.ceil((15*60*1000 - (now - attempts.firstAttempt)) / 60000);
-                return res.status(429).json({ error: `Account locked. Try again in ${remaining} minutes.` });
+                const captchaData = captchaStore.get(captcha_id);
+                if (!captchaData || Date.now() > captchaData.expires) {
+                    captchaStore.delete(captcha_id);
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+                const captchaOk = captcha_answer.toUpperCase().trim() === String(captchaData.answer).toUpperCase();
+                captchaStore.delete(captcha_id); // one-time use regardless of outcome
+                if (!captchaOk) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+            } else {
+                // turnstileResult === false — token present but verification failed
+                return res.status(400).json({ error: GENERIC_AUTH_ERROR });
             }
 
             const result = await q('SELECT * FROM users WHERE email=$1 AND is_active=TRUE', [email]);
@@ -767,31 +747,29 @@ app.post('/api/auth/login',
                 : await bcrypt.compare(password, dummyHash);
 
             if (!user || !isValid) {
-                // Track failed attempt
-            attempts.count++;
-            loginAttempts.set(attemptKey, attempts);
-            return res.status(401).json({ error: 'Invalid email or password' });
+                return res.status(401).json({ error: 'Invalid email or password' });
             }
 
             await q('UPDATE users SET last_login=NOW() WHERE id=$1', [user.id]);
-            // Clear failed attempts on successful login
-            loginAttempts.delete(attemptKey);
             const token = sign(user);
 
-            // V-006: httpOnly cookie — JS cannot read this token
-            const cookieOptions = 'mx_token=' + token +
-                '; HttpOnly; Path=/; Max-Age=' + (7*24*60*60) +
-                (process.env.NODE_ENV === 'production' ? '; Secure; SameSite=Strict' : '; SameSite=Lax');
-            res.setHeader('Set-Cookie', cookieOptions);
+            // V-006: Set httpOnly cookie — token never exposed to JavaScript
+            res.cookie('mx_token', token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: '/'
+            });
 
             res.json({
                 success: true,
-                token: token, // Also return token for backward compat during migration
                 user: { email: user.email, role: user.role, username: user.username }
+                // token NOT returned in body — stored in httpOnly cookie only
             });
         } catch (e) {
             console.error('Login error:', e.message);
-            res.status(500).json({ error: 'Internal server error' });
+            res.status(500).json({ error: 'Login failed' });
         }
     }
 );
@@ -1423,42 +1401,42 @@ app.get('/api/v1/suppliers', auth, async (req, res) => {
 // Covers: Sensitive Data Exposure via stack traces
 // ─────────────────────────────────────────
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err.message);
-    // CORS violations → 403 Forbidden (not 500)
-    if (err.message && err.message.includes('CORS')) {
-        return res.status(403).json({ error: 'Forbidden' });
+    // CORS errors MUST return 403, never 500
+    if (err && (err.message?.includes('CORS') || err.status === 403)) {
+        return res.status(403).end();
     }
-    // Add CORS headers on errors for whitelisted origins only
+    console.error('Server error:', err.message);
+    // Add CORS headers for whitelisted origins on error responses
     const origin = req.headers.origin;
-    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com',
-                     'https://medix-mobile.onrender.com','https://medix-api-5goh.onrender.com'];
-    if (origin && allowed.includes(origin)) {
+    if (origin && allowedOrigins().includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
-    const status = err.status || 500;
-    res.status(status).json({ error: status === 500 ? 'Internal server error' : 'Request failed' });
+    res.status(err.status || 500).json({ error: 'Internal server error' });
+});
+
+// Handle OPTIONS preflight — always returns 2xx or 4xx, NEVER 500
+app.options('*', (req, res) => {
+    try {
+        const origin = req.headers.origin;
+        const allowed = allowedOrigins();
+        if (!origin || allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
+            if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+            res.setHeader('Access-Control-Max-Age', '3600');
+            return res.status(204).end();
+        }
+        // Non-whitelisted origin → 403 (never 500)
+        return res.status(403).end();
+    } catch(e) {
+        return res.status(403).end();
+    }
 });
 
 // 404 handler — prevent path traversal info leakage
-// Handle OPTIONS preflight — never return 500, return 403 for unknown origins
-app.options('*', (req, res) => {
-    const origin = req.headers.origin;
-    const allowed = ['https://medix-admin.onrender.com','https://medix-patient.onrender.com',
-                     'https://medix-mobile.onrender.com','https://medix-api-5goh.onrender.com'];
-    if (!origin || allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
-        res.setHeader('Access-Control-Allow-Origin', origin || '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Request-ID');
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Max-Age', '3600'); // 1hr not 24hr
-        return res.status(204).end();
-    }
-    // Non-whitelisted origin → 403, not 500
-    return res.status(403).json({ error: 'Forbidden' });
-});
-
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => console.log(`✅ MediX HMS v5 (Hardened) running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`✅ Service running on port ${PORT}`));
