@@ -600,7 +600,7 @@ app.get('/', async (req, res) => {
     res.setHeader('Content-Security-Policy',
         `default-src 'self'; ` +
         `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
-        `style-src 'self' 'nonce-${nonce}'; ` +
+        `style-src 'self' 'unsafe-inline'; ` +
         `img-src 'self' data:; ` +
         `connect-src 'self'; ` +
         `frame-src challenges.cloudflare.com; ` +
@@ -625,7 +625,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
             `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
-            `style-src 'self' 'nonce-${nonce}'; ` +
+            `style-src 'self' 'unsafe-inline'; ` +
             `img-src 'self' data:; ` +
             `connect-src 'self'; ` +
             `frame-src challenges.cloudflare.com; ` +

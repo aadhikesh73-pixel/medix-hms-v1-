@@ -1025,6 +1025,30 @@ sessionStorage.setItem('mx_user',JSON.stringify(user)); // Only non-sensitive us
   finally{btn.disabled=false;btn.textContent='Sign in to MediX';}
 }
 
+// ── DYNAMIC API CONFIG — loaded after auth ──────────────────
+let _cfg = {};
+async function loadApiConfig() {
+    try {
+        const d = await call('/api/auth/config');
+        _cfg = d.endpoints || {};
+    } catch (e) {
+        _cfg = {
+            overview: '/api/v1/overview', patients: '/api/v1/patients',
+            doctors: '/api/v1/doctors', beds: '/api/v1/beds',
+            appointments: '/api/v1/appointments', attendance: '/api/v1/attendance',
+            checkin: '/api/v1/attendance/checkin', checkout: '/api/v1/attendance/checkout',
+            medicines: '/api/v1/medicines', orders: '/api/v1/orders',
+            departments: '/api/v1/departments', suppliers: '/api/v1/suppliers',
+            notifications: '/api/v1/notifications',
+            readAll: '/api/v1/notifications/read-all',
+            finOverview: '/api/v1/finance/overview',
+            finSector: '/api/v1/finance/by-sector',
+            finTrend: '/api/v1/finance/trend',
+            finTxn: '/api/v1/finance/transaction'
+        };
+    }
+}
+
 function showApp() {
   loadApiConfig(); // Load API paths after auth
   document.getElementById('ls').style.display='none';
