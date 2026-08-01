@@ -599,7 +599,7 @@ app.get('/', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.setHeader('Content-Security-Policy',
         `default-src 'self'; ` +
-        `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
+        `script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
         `style-src 'self' 'unsafe-inline'; ` +
         `img-src 'self' data:; ` +
         `connect-src 'self'; ` +
@@ -624,7 +624,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
         const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
-            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
+            `script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
             `style-src 'self' 'unsafe-inline'; ` +
             `img-src 'self' data:; ` +
             `connect-src 'self'; ` +

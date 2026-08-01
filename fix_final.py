@@ -1,7 +1,7 @@
 import re, os, subprocess
 
 print("=" * 60)
-print("MediX HMS — Consolidated Fix v2")
+print("MediX HMS — Consolidated Fix v3")
 print("=" * 60)
 
 with open('backend/server.js', 'r') as f:
@@ -165,6 +165,8 @@ FIXES_JS.append(("FIX-F", """            defaultSrc:     ["'self'"],
 
 FIXES_JS.append(("FIX-I1", """        `style-src 'self' 'nonce-${nonce}'; ` +""", """        `style-src 'self' 'unsafe-inline'; ` +"""))
 FIXES_JS.append(("FIX-I2", """            `style-src 'self' 'nonce-${nonce}'; ` +""", """            `style-src 'self' 'unsafe-inline'; ` +"""))
+
+FIXES_JS.append(("FIX-J", """`script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; `""", """`script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; `"""))
 
 for name, old, new in FIXES_JS:
     if old in s:
