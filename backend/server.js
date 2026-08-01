@@ -53,11 +53,11 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
+            scriptSrc:      ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com", "challenges.cloudflare.com"],
             styleSrc:       ["'self'", "'unsafe-inline'"],
             imgSrc:         ["'self'", "data:", "https:"],
             connectSrc:     ["'self'"], // SECURITY: Never list internal URLs in CSP header
-            frameSrc:       ["'none'"],
+            frameSrc:       ["challenges.cloudflare.com"],
             objectSrc:      ["'none'"],
             upgradeInsecureRequests: [],
         },
@@ -597,6 +597,17 @@ app.get('/', async (req, res) => {
     html = html.replace(/<style(?!.*nonce)/g, `<style nonce="${nonce}"`);
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Content-Security-Policy',
+        `default-src 'self'; ` +
+        `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
+        `style-src 'self' 'nonce-${nonce}'; ` +
+        `img-src 'self' data:; ` +
+        `connect-src 'self'; ` +
+        `frame-src challenges.cloudflare.com; ` +
+        `frame-ancestors 'none'; ` +
+        `object-src 'none'; ` +
+        `base-uri 'self';`
+    );
     res.send(html);
 });
 
@@ -613,10 +624,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
         const nonce = res.locals.nonce || require('crypto').randomBytes(16).toString('base64');
         res.setHeader('Content-Security-Policy',
             `default-src 'self'; ` +
-            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com; ` +
+            `script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; ` +
             `style-src 'self' 'nonce-${nonce}'; ` +
             `img-src 'self' data:; ` +
             `connect-src 'self'; ` +
+            `frame-src challenges.cloudflare.com; ` +
             `frame-ancestors 'none'; ` +
             `object-src 'none'; ` +
             `base-uri 'self';`
