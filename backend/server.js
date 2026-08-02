@@ -727,10 +727,11 @@ app.post('/api/auth/login',
             const captcha_answer = typeof req.body?.captcha_answer !== 'undefined' ? String(req.body.captcha_answer) : '';
 
             const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
-            if (turnstileResult === true) {
-                // Turnstile passed — skip word CAPTCHA check
-            } else if (turnstileResult === null) {
-                // Turnstile not configured on this deployment — word CAPTCHA is required
+            if (turnstileResult !== true) {
+                // Not explicitly passed by Turnstile (no token sent, Turnstile not
+                // configured, or verification failed) — fall back to word CAPTCHA.
+                // verifyTurnstile() returns false (not null) when no token is present
+                // at all, which is the normal case right now — must not hard-reject.
                 if (!captcha_id || !captcha_answer) {
                     return res.status(400).json({ error: GENERIC_AUTH_ERROR });
                 }
@@ -744,9 +745,6 @@ app.post('/api/auth/login',
                 if (!captchaOk) {
                     return res.status(400).json({ error: GENERIC_AUTH_ERROR });
                 }
-            } else {
-                // turnstileResult === false — token present but verification failed
-                return res.status(400).json({ error: GENERIC_AUTH_ERROR });
             }
 
             const result = await q('SELECT * FROM users WHERE email=$1 AND is_active=TRUE', [email]);

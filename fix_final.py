@@ -1,7 +1,7 @@
 import re, os, subprocess
 
 print("=" * 60)
-print("MediX HMS — Consolidated Fix v3")
+print("MediX HMS — Consolidated Fix v2")
 print("=" * 60)
 
 with open('backend/server.js', 'r') as f:
@@ -166,7 +166,47 @@ FIXES_JS.append(("FIX-F", """            defaultSrc:     ["'self'"],
 FIXES_JS.append(("FIX-I1", """        `style-src 'self' 'nonce-${nonce}'; ` +""", """        `style-src 'self' 'unsafe-inline'; ` +"""))
 FIXES_JS.append(("FIX-I2", """            `style-src 'self' 'nonce-${nonce}'; ` +""", """            `style-src 'self' 'unsafe-inline'; ` +"""))
 
-FIXES_JS.append(("FIX-J", """`script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; `""", """`script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; `"""))
+FIXES_JS.append(("FIX-J", "`script-src 'self' 'nonce-${nonce}' cdnjs.cloudflare.com challenges.cloudflare.com; `", "`script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com challenges.cloudflare.com; `"))
+
+FIXES_JS.append(("FIX-K", """            const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
+            if (turnstileResult === true) {
+                // Turnstile passed
+            } else if (turnstileResult === null) {
+                if (!captcha_id || !captcha_answer) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+                const captchaData = captchaStore.get(captcha_id);
+                if (!captchaData || Date.now() > captchaData.expires) {
+                    captchaStore.delete(captcha_id);
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+                const captchaOk = captcha_answer.toUpperCase().trim() === String(captchaData.answer).toUpperCase();
+                captchaStore.delete(captcha_id);
+                if (!captchaOk) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+            } else {
+                return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+            }""", """            const turnstileResult = await verifyTurnstile(turnstileToken, req.ip);
+            if (turnstileResult !== true) {
+                // Not explicitly passed by Turnstile (no token sent, Turnstile not
+                // configured, or verification failed) — fall back to word CAPTCHA.
+                // verifyTurnstile() returns false (not null) when no token is present
+                // at all, which is the normal case right now — must not hard-reject.
+                if (!captcha_id || !captcha_answer) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+                const captchaData = captchaStore.get(captcha_id);
+                if (!captchaData || Date.now() > captchaData.expires) {
+                    captchaStore.delete(captcha_id);
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+                const captchaOk = captcha_answer.toUpperCase().trim() === String(captchaData.answer).toUpperCase();
+                captchaStore.delete(captcha_id);
+                if (!captchaOk) {
+                    return res.status(400).json({ error: GENERIC_AUTH_ERROR });
+                }
+            }"""))
 
 for name, old, new in FIXES_JS:
     if old in s:
