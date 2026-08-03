@@ -33,6 +33,7 @@ const io     = new Server(server, { cors: { origin: allowedOrigins(), methods: [
 // ─────────────────────────────────────────
 function allowedOrigins() {
     const origins = [
+        'https://medix-api-5goh.onrender.com',
         'https://medix-admin.onrender.com',
         'https://medix-patient.onrender.com',
         'https://medix-mobile.onrender.com',
