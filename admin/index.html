@@ -1009,11 +1009,11 @@ async function doLogin() {
   const ans=document.getElementById('capA').value.trim().toUpperCase();
   const errEl=document.getElementById('lerr'), btn=document.getElementById('lbtn');
   errEl.style.display='none';
-  if(isNaN(ans)||ans!==capAns){document.getElementById('capErr').style.display='block';genCap();return;}
+  if(!ans){document.getElementById('capErr').style.display='block';return;}
   if(!email||!pass){errEl.textContent='Email and password required';errEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Signing in…';
   try {
-    const res=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass})});
+    const res=await fetch(`${API}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:pass,turnstile_token:turnstileToken,captcha_id:captchaId,captcha_answer:ans})});
     const d=await res.json();
     if(!res.ok) throw new Error(d.error||'Login failed');
     // V-006: Token in httpOnly cookie set by server — not returned in body
