@@ -5,16 +5,18 @@ OLD = """function allowedOrigins() {
     const origins = [
         'https://medix-admin.onrender.com',
         'https://medix-patient.onrender.com',
-        'https://medix-mobile.onrender.com',
+        'https://medix-mobile.on
     ];"""
 
 NEW = """function allowedOrigins() {
     const origins = [
-        'https://medix-api-5goh.onrender.com',
+        'https://medix-api-5goh.onrender.com', // ✅ Your frontend URL
         'https://medix-admin.onrender.com',
         'https://medix-patient.onrender.com',
         'https://medix-mobile.onrender.com',
-    ];"""
+    ];
+    return origins;
+}"""
 
 if OLD in s:
     s = s.replace(OLD, NEW)
